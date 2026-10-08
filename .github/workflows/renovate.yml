@@ -253,7 +253,7 @@ jobs:
           persist-credentials: false
 
       - name: 'Download cache of the previous workflow run'
-        uses: 'dawidd6/action-download-artifact@0bd50d53a6d7fb5cb921e607957e9cc12b4ce392' # v12
+        uses: 'dawidd6/action-download-artifact@eab87c9830c39eff17e5a6eadb20bfb4bc880477' # v27
         if: "env.REPO_CACHE == 'enabled' && env.CACHE_RESET != 'true'"
         id: 'artifact-download'
         with:
