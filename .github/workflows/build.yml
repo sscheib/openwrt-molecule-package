@@ -185,9 +185,10 @@ jobs:
     if: "!cancelled() && needs.metadata.result == 'success'"
     runs-on: 'ubuntu-24.04'
     # the SDK action re-downloads the SDK tarball (about 260 MB) from the OpenWrt
-    # mirror even for a release image that already ships it, and a stalled mirror
-    # connection otherwise holds the job until the six-hour default
-    timeout-minutes: 30
+    # mirror even for a release image that already ships it. MEASURED: runners are
+    # sent to mirror-03 at about 136 KB/s, so the download alone takes over 30
+    # minutes. The cap still ends a dead connection long before the six-hour default
+    timeout-minutes: 60
     permissions:
       contents: 'read'
     strategy:
