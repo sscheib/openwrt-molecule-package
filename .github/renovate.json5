@@ -172,13 +172,13 @@
       "datasourceTemplate": "docker",
     },
     {
-      "description": "Extract the OpenWrt SDK images of the build matrix: ARCH is the ghcr.io/openwrt/sdk tag, x86_64-<release>, followed by its digest",
+      "description": "Extract the OpenWrt SDK images of the build matrix, ghcr.io/openwrt/sdk:x86_64-<release>@<digest>, the image sdk/Dockerfile builds FROM",
       "customType": "regex",
       "managerFilePatterns": [
         "/^\\.github/workflows/build\\.yml$/",
       ],
       "matchStrings": [
-        "# renovate: datasource=docker depName=(?<depName>ghcr\\.io/openwrt/sdk)\\s+sdk: '(?<currentValue>x86_64-[0-9]+\\.[0-9]+\\.[0-9]+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
+        "# renovate: datasource=docker\\s+sdk: '(?<depName>ghcr\\.io/openwrt/sdk):(?<currentValue>x86_64-[0-9]+\\.[0-9]+\\.[0-9]+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
       ],
       "datasourceTemplate": "docker",
       "versioningTemplate": "regex:^x86_64-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",

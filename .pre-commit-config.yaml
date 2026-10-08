@@ -184,6 +184,30 @@ repos:
           - 'pre-commit'
         verbose: true
 
+  - repo: 'https://github.com/hadolint/hadolint'
+    rev: '2eece55955ced00200be9729e9728cb7dacca505'  # frozen: v2.15.1
+    hooks:
+      - id: 'hadolint-docker'
+        verbose: true
+        # docker_image hooks bind-mount the repo with a PRIVATE SELinux relabel
+        # (:Z), which stamps the whole tree with that container's MCS categories.
+        # prek runs hooks in parallel, so two container hooks relabelling at once
+        # lock each other out ("open /src: permission denied", rc 126). Serialising
+        # them keeps one relabel live at a time
+        require_serial: true
+        stages:
+          - 'pre-commit'
+
+  - repo: 'https://github.com/koalaman/shellcheck-precommit'
+    rev: '99470f5e12208ff0fb17ab81c3c494f7620a1d8d'  # frozen: v0.11.0
+    hooks:
+      - id: 'shellcheck'
+        verbose: true
+        # see hadolint-docker
+        require_serial: true
+        stages:
+          - 'pre-commit'
+
   # every file is pure ASCII. A local pygrep hook, because the shared nonascii hook
   # lives in a private repository a public one cannot clone
   - repo: 'local'

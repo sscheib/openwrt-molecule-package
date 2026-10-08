@@ -25,10 +25,13 @@ It installs `/usr/share/openwrt-molecule-package/marker` and depends only on
 ## Building
 
 [`openwrt-molecule-package/Makefile`](openwrt-molecule-package/Makefile) is a
-regular OpenWrt package. The `Build` workflow builds it with the official
-[OpenWrt SDK action](https://github.com/openwrt/gh-action-sdk): the 24.10 SDK
-writes the ipk and the 25.12 SDK writes the apk. Pull requests and `main` upload
-both as workflow artifacts.
+regular OpenWrt package. The `Build` workflow builds [`sdk/Dockerfile`](sdk/Dockerfile)
+with docker buildx on top of the digest-pinned OpenWrt release SDK image and runs
+[`sdk/build-package.sh`](sdk/build-package.sh) in it with the package mounted as
+its feed. The 24.10 SDK writes the ipk and the 25.12 SDK writes the apk, and pull
+requests and `main` upload both as workflow artifacts. It does not use the
+[OpenWrt SDK action](https://github.com/openwrt/gh-action-sdk), which downloads
+the SDK again on every run although the image already holds it.
 
 Releases are cut automatically from the Conventional Commits on `main`, there is
 no manual tagging. [semantic-release](https://semantic-release.gitbook.io) picks
