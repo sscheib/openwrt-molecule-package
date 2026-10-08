@@ -1,0 +1,8 @@
+---
+# markdownlint-cli2 behaviour. The rule configuration stays in .markdownlint.yml.
+ignores:
+  # semantic-release generates the change log, its release notes are not ours to lint
+  - 'CHANGELOG.md'
+  # the commitlint toolchain `npm ci` installs locally
+  - 'node_modules/**'
+...

@@ -37,6 +37,16 @@
   },
   "packageRules": [
     {
+      "description": "Keep the semantic-release preset below 10: 10.x renders empty release notes with the changelog writer semantic-release 25 ships",
+      "matchFileNames": [
+        ".github/workflows/build.yml"
+      ],
+      "matchPackageNames": [
+        "conventional-changelog-conventionalcommits"
+      ],
+      "allowedVersions": "<10.0.0"
+    },
+    {
       "description": "Enable major and minor updates (bump range) for the CI configuration files",
       "matchFileNames": [
         ".github/workflows/**",
@@ -82,6 +92,7 @@
       "description": "Update renovate related dependencies once a week to avoid spamming",
       "matchDepNames": [
         "ghcr.io/renovatebot/renovate",
+        "renovatebot/github-action",
         "renovatebot/pre-commit-hooks",
       ],
       "groupName": "renovate",
@@ -146,6 +157,17 @@
       ],
       "matchStrings": [
         "# renovate: datasource=docker\\s+[A-Z_]+: '(?<depName>[^:'@]+):(?<currentValue>[^@']+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
+      ],
+      "datasourceTemplate": "docker",
+    },
+    {
+      "description": "Extract the Renovate version the Renovate workflow runs, e.g. # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate above renovate-version: '42.71.0'",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/renovate\\.yml$/",
+      ],
+      "matchStrings": [
+        "# renovate: datasource=docker depName=(?<depName>\\S+)\\s+renovate-version: '(?<currentValue>[^']+)'",
       ],
       "datasourceTemplate": "docker",
     },

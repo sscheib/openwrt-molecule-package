@@ -1,0 +1,369 @@
+---
+# Self-hosted Renovate. An inline copy of the shared sscheib reusable-renovate
+# workflow and its caller (a public repository cannot call the private originals),
+# without the Red Hat registries and Automation Hub this repository does not use.
+#
+# It checks that RENOVATE_TOKEN exists, validates the Renovate configuration and
+# checks that the triggering actor has write permission. Then it runs Renovate with
+# its repository cache round-tripped through a workflow artifact, gitleaks-scanned
+# before every upload.
+name: 'Renovate'
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+    inputs:
+      repoCache:
+        description: 'Reset or disable the cache?'
+        type: 'choice'
+        default: 'enabled'
+        options:
+          - 'enabled'
+          - 'disabled'
+          - 'reset'
+
+      renovateLogLevel:
+        description: 'Renovate Log Level'
+        type: 'choice'
+        default: 'debug'
+        options:
+          - 'debug'
+          - 'info'
+          - 'warn'
+          - 'error'
+          - 'fatal'
+
+  schedule:
+    # run renovate once an hour
+    - cron: '0 * * * *'
+
+    # start from an empty cache once a week on Monday night
+    - cron: '30 0 * * 1'
+
+permissions:
+  contents: 'read'
+
+# a Renovate run pushes branches and opens pull requests, never cancel it half way
+concurrency:
+  group: 'renovate-${{ github.workflow }}'
+  cancel-in-progress: false
+
+env:
+  # the compressed repository cache handed from one run to the next
+  CACHE_ARCHIVE: 'renovate_cache.tar.gz'
+
+  # the directory Renovate uses on its own. Setting cacheDir instead runs into
+  # permission issues inside the Renovate container
+  CACHE_DIR: '/tmp/renovate/cache/renovate/repository'
+
+  # the artifact name, change it to bust the cache
+  CACHE_KEY: 'renovate-cache'
+
+  # 'enabled', 'disabled' or 'reset', a scheduled run has no inputs
+  REPO_CACHE: "${{ inputs.repoCache || 'enabled' }}"
+
+  # the weekly schedule skips restoring the previous cache
+  CACHE_RESET: "${{ github.event.schedule == '30 0 * * 1' }}"
+
+jobs:
+  check-secrets:
+    name: 'Check if required secrets are available'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    outputs:
+      secrets-defined: '${{ steps.secret-check.outputs.secrets-defined }}'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+
+      - name: 'Check if all required secrets are defined'
+        id: 'secret-check'
+        shell: 'bash'
+        env:
+          RENOVATE_TOKEN: '${{ secrets.RENOVATE_TOKEN }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          [[ -n "${RENOVATE_TOKEN}" ]] || {
+            echo "INFO: RENOVATE_TOKEN is not defined, skipping Renovate";
+            echo "secrets-defined=false" >> "${GITHUB_OUTPUT}";
+            exit 0;
+          };
+
+          # secrets not empty, so assuming defined
+          echo "secrets-defined=true" >> "${GITHUB_OUTPUT}"
+
+  renovate-config-validator:
+    name: 'Validate the Renovate configuration'
+    needs:
+      - 'check-secrets'
+    if: "needs.check-secrets.outputs.secrets-defined == 'true'"
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            ghcr.io:443
+            github.com:443
+            pkg-containers.githubusercontent.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Validate the Renovate configuration'
+        shell: 'bash'
+        env:
+          # renovate: datasource=docker
+          RENOVATE_IMAGE: 'ghcr.io/renovatebot/renovate:42.71.0@sha256:00b07c100a298085126b9e59f0d0004edb0cf827c22b59f18dd7385399482e9d'  # yamllint disable-line rule:line-length
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          docker run --rm -v "${PWD}:/mnt" -w /mnt "${RENOVATE_IMAGE}" \
+            renovate-config-validator --strict || {
+              echo "ERROR: Renovate configuration check failed, failing workflow!";
+              exit 1;
+          };
+
+  check-user-permissions:
+    name: 'Check the triggering actor has write permission'
+    needs:
+      - 'renovate-config-validator'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    outputs:
+      require-result: '${{ steps.check-access.outputs.require-result }}'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - name: 'Get User Permissions'
+        id: 'check-access'
+        uses: 'actions-cool/check-user-permission@7b90a27f92f3961b368376107661682c441f6103' # v2.3.0
+        with:
+          require: 'write'
+          username: '${{ github.triggering_actor }}'
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
+      - name: 'Check User Permission'
+        if: "steps.check-access.outputs.require-result == 'false'"
+        shell: 'bash'
+        env:
+          TRIGGERING_ACTOR: '${{ github.triggering_actor }}'
+          USER_PERMISSION: '${{ steps.check-access.outputs.user-permission }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          echo "${TRIGGERING_ACTOR} does not have permissions on this repo."
+          echo "Current permission level is ${USER_PERMISSION}"
+          echo "Job originally triggered by ${GITHUB_ACTOR}"
+
+  renovate:
+    name: 'Run Renovate'
+    needs:
+      - 'check-user-permissions'
+    if: "needs.check-user-permissions.outputs.require-result == 'true'"
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      # Renovate pushes and opens pull requests with RENOVATE_TOKEN. GITHUB_TOKEN
+      # only checks out the repository and reads the previous run's cache artifact
+      actions: 'read'
+      contents: 'read'
+      # GITHUB_TOKEN also authenticates the ghcr.io lookups (see renovate_global.js)
+      packages: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          # no disable-sudo: the restored cache has to be chowned to the Renovate user
+          egress-policy: 'block'
+          # GitHub: the platform, git, the github-tags and github-releases lookups,
+          #   the release assets Renovate installs tools and the OSV database from
+          # artifacts: the previous cache download and the new cache upload
+          # ghcr.io: the Renovate and gitleaks images and the docker lookups of the
+          #   OpenWrt SDK, Renovate and gitleaks images
+          # Docker Hub: the docker lookups of the actionlint image
+          # npm, Node.js and PyPI: the npm, node-version and pypi lookups and the
+          #   package-lock.json maintenance
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            api.github.com:443
+            auth.docker.io:443
+            ghcr.io:443
+            github.com:443
+            hub.docker.com:443
+            index.docker.io:443
+            nodejs.org:443
+            objects.githubusercontent.com:443
+            pkg-containers.githubusercontent.com:443
+            production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
+            pypi.org:443
+            registry-1.docker.io:443
+            registry.npmjs.org:443
+            release-assets.githubusercontent.com:443
+            results-receiver.actions.githubusercontent.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Download cache of the previous workflow run'
+        uses: 'dawidd6/action-download-artifact@0bd50d53a6d7fb5cb921e607957e9cc12b4ce392' # v12
+        if: "env.REPO_CACHE == 'enabled' && env.CACHE_RESET != 'true'"
+        id: 'artifact-download'
+        with:
+          name: '${{ env.CACHE_KEY }}'
+          path: 'cache-download'
+          if_no_artifact_found: 'ignore'
+
+      - name: 'Extract Renovate cache to improve performance'
+        if: >-
+          env.REPO_CACHE == 'enabled' &&
+          env.CACHE_RESET != 'true' &&
+          steps.artifact-download.outputs.found_artifact == 'true'
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # Make sure the directory exists, and extract it there. Note that it's nested in the download directory.
+          mkdir -p "${CACHE_DIR}"
+          tar -xzf "cache-download/${CACHE_ARCHIVE}" -C "${CACHE_DIR}"
+
+          # Unfortunately, the permissions expected within renovate's docker container
+          # are different than the ones given after the cache is restored. We have to
+          # change ownership to solve this. We also need to have correct permissions in
+          # the entire /tmp/renovate tree, not just the section with the repo cache.
+          sudo chown -R "12021:root" "/tmp/renovate/"
+
+          # show directory contents if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            ls -R "${CACHE_DIR}";
+          };
+
+      - name: 'Run Renovate'
+        uses: 'renovatebot/github-action@8b7941943a108b2cc2150730963164aa8baeab8c' # v44.2.2
+        with:
+          # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
+          renovate-version: '42.71.0'
+          configurationFile: '.github/renovate_global.js'
+          token: '${{ secrets.RENOVATE_TOKEN }}'
+        env:
+          RENOVATE_REPOSITORY_CACHE: '${{ env.REPO_CACHE }}'
+          RENOVATE_REPOSITORIES: '${{ github.repository }}'
+          RENOVATE_GHCR_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          RENOVATE_GHCR_USERNAME: '${{ github.actor }}'
+          LOG_LEVEL: "${{ inputs.renovateLogLevel || 'debug' }}"
+
+      - name: 'Scan renovate cache directory to ensure it contains no secrets prior to uploading'
+        if: "env.REPO_CACHE != 'disabled'"
+        shell: 'bash'
+        env:
+          # renovate: datasource=docker
+          GITLEAKS_IMAGE: 'ghcr.io/gitleaks/gitleaks:v8.30.0@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9'  # yamllint disable-line rule:line-length
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          docker run --rm -v "${CACHE_DIR}:/scan:ro" "${GITLEAKS_IMAGE}" dir '/scan' || {
+            echo "ERROR: Secret found, failing workflow";
+            exit 1;
+          };
+
+      - name: 'Compress Renovate cache to improve performance'
+        if: "env.REPO_CACHE != 'disabled'"
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # The -C is important, as otherwise we end up extracting the files with
+          # their full path, ultimately leading to a nested directory situation.
+          tar -czvf "${CACHE_ARCHIVE}" -C "${CACHE_DIR}" .
+
+      - name: 'Upload compressed cache'
+        uses: 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' # v7.0.1
+        if: "env.REPO_CACHE != 'disabled'"
+        with:
+          name: '${{ env.CACHE_KEY }}'
+          path: '${{ env.CACHE_ARCHIVE }}'
+          # Since this is updated and restored on every run, we don't need to keep it
+          # for long. Just make sure this value is large enough that multiple renovate
+          # runs can happen before older cache archives are deleted.
+          retention-days: 1
+...

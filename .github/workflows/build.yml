@@ -4,16 +4,17 @@
 # the apk (apk-tools 3, OpenWrt 25.12 and newer). PKGARCH:=all makes each package
 # install on every target, so one x86_64 SDK per format is enough.
 #
-# Pull requests and main upload both packages as workflow artifacts. A v* tag also
-# checks that the tag is v<PKG_VERSION> and publishes both packages as the GitHub
-# release of that tag, which is what the sscheib.openwrt molecule tests install.
+# Pull requests and main upload both packages as workflow artifacts. On main
+# semantic-release decides from the Conventional Commits since the last release
+# whether a release is due. If one is, the packages are built for that version and
+# the release job tags it, commits the version and the change log and publishes the
+# GitHub release with both packages, which is what the sscheib.openwrt molecule
+# tests install.
 name: 'Build'
 on:  # yamllint disable-line rule:truthy
   push:
     branches:
       - 'main'
-    tags:
-      - 'v*'
 
   pull_request:
     branches:
@@ -26,12 +27,74 @@ permissions:
 
 concurrency:
   group: 'build-${{ github.workflow }}-${{ github.ref }}'
-  # a tag run publishes a release, never cancel it half way
-  cancel-in-progress: "${{ github.ref_type != 'tag' }}"
+  # a run on main may publish a release, never cancel it half way
+  cancel-in-progress: "${{ github.event_name == 'pull_request' }}"
+
+env:
+  # cycjimmy/semantic-release-action installs semantic-release and the extra
+  # plugins itself (it accepts no lockfile), so they are exact-version pinned
+  # renovate: datasource=npm depName=semantic-release
+  SEMANTIC_RELEASE_VERSION: '25.0.2'
+  # renovate: datasource=npm depName=@semantic-release/changelog
+  SEMANTIC_RELEASE_CHANGELOG_VERSION: '6.0.3'
+  # renovate: datasource=npm depName=@semantic-release/exec
+  SEMANTIC_RELEASE_EXEC_VERSION: '7.1.0'
+  # renovate: datasource=npm depName=@semantic-release/git
+  SEMANTIC_RELEASE_GIT_VERSION: '10.0.1'
+  # the Conventional Commits preset of the analyzer and the release notes. 10.x renders
+  # empty release notes with the changelog writer semantic-release 25 ships (8.4.0)
+  # renovate: datasource=npm depName=conventional-changelog-conventionalcommits
+  CONVENTIONALCOMMITS_VERSION: '9.1.0'
 
 jobs:
+  version:
+    name: 'Determine the next release'
+    if: "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      # even a dry run proves it could push the release (git push --dry-run)
+      contents: 'write'
+    outputs:
+      new-release-published: '${{ steps.semantic.outputs.new_release_published }}'
+      new-release-version: '${{ steps.semantic.outputs.new_release_version }}'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            registry.npmjs.org:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          # semantic-release needs every commit and tag since the last release
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 'Determine the next release with a semantic-release dry run'
+        id: 'semantic'
+        uses: 'cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90' # v6.0.0
+        with:
+          dry_run: true
+          semantic_version: '${{ env.SEMANTIC_RELEASE_VERSION }}'
+          extra_plugins: |
+            @semantic-release/changelog@${{ env.SEMANTIC_RELEASE_CHANGELOG_VERSION }}
+            @semantic-release/exec@${{ env.SEMANTIC_RELEASE_EXEC_VERSION }}
+            @semantic-release/git@${{ env.SEMANTIC_RELEASE_GIT_VERSION }}
+            conventional-changelog-conventionalcommits@${{ env.CONVENTIONALCOMMITS_VERSION }}
+        env:
+          GITHUB_TOKEN: '${{ github.token }}'
+
   metadata:
-    name: 'Read the package metadata'
+    name: 'Determine the package version to build'
+    needs:
+      - 'version'
+    # the version job only runs on main, everywhere else the Makefile decides
+    if: "!cancelled() && (needs.version.result == 'success' || needs.version.result == 'skipped')"
     runs-on: 'ubuntu-24.04'
     permissions:
       contents: 'read'
@@ -39,6 +102,7 @@ jobs:
       name: '${{ steps.read.outputs.name }}'
       version: '${{ steps.read.outputs.version }}'
       release: '${{ steps.read.outputs.release }}'
+      release-due: '${{ steps.read.outputs.release-due }}'
     steps:
       - name: 'Harden Runner'
         uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
@@ -53,11 +117,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: 'Read PKG_NAME, PKG_VERSION and PKG_RELEASE from the Makefile'
+      - name: 'Read the Makefile and apply the next release'
         id: 'read'
         shell: 'bash'
         env:
           MAKEFILE: './openwrt-molecule-package/Makefile'
+          RELEASE_DUE: '${{ needs.version.outputs.new-release-published }}'
+          NEXT_VERSION: '${{ needs.version.outputs.new-release-version }}'
         run: |
           # fail if:
           # - a variable is unbound
@@ -88,45 +154,40 @@ jobs:
           version="$(readVariable 'PKG_VERSION')"
           release="$(readVariable 'PKG_RELEASE')"
 
+          # a due release builds the version semantic-release will tag, as release 1
+          if [[ "${RELEASE_DUE}" == 'true' ]]; then
+            [[ "${NEXT_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo "ERROR: semantic-release computed '${NEXT_VERSION}', not a plain X.Y.Z version";
+              exit 1;
+            };
+            version="${NEXT_VERSION}"
+            release='1'
+            echo "INFO: release ${version} is due"
+          else
+            RELEASE_DUE='false'
+            echo "INFO: no release is due, building the Makefile's version"
+          fi
+
           echo "INFO: ${name} ${version}-r${release}"
           {
             echo "name=${name}"
             echo "version=${version}"
             echo "release=${release}"
+            echo "release-due=${RELEASE_DUE}"
           } >> "${GITHUB_OUTPUT}"
-
-      - name: 'Check that the tag is v<PKG_VERSION>'
-        if: "github.ref_type == 'tag'"
-        shell: 'bash'
-        env:
-          TAG: '${{ github.ref_name }}'
-          VERSION: '${{ steps.read.outputs.version }}'
-        run: |
-          # fail if:
-          # - a variable is unbound
-          # - any command fails
-          # - a command in a pipe fails
-          # - a command in a sub-shell fails
-          set -Eeuo pipefail
-
-          # enable debug if runner runs in debug
-          [[ "${{ runner.debug }}" != '1' ]] || {
-            echo "INFO: Enabling bash trace";
-            set -x;
-          };
-
-          [[ "${TAG}" == "v${VERSION}" ]] || {
-            echo "ERROR: tag '${TAG}' does not match PKG_VERSION '${VERSION}', expected 'v${VERSION}'";
-            exit 1;
-          };
-
-          echo "INFO: tag '${TAG}' matches PKG_VERSION"
 
   build:
     name: 'Build the ${{ matrix.format }} with the OpenWrt ${{ matrix.openwrt }} SDK'
     needs:
       - 'metadata'
+    # the implicit success() would also skip the build when the version job was
+    # skipped, as it is on every pull request
+    if: "!cancelled() && needs.metadata.result == 'success'"
     runs-on: 'ubuntu-24.04'
+    # the SDK action re-downloads the SDK tarball (about 260 MB) from the OpenWrt
+    # mirror even for a release image that already ships it, and a stalled mirror
+    # connection otherwise holds the job until the six-hour default
+    timeout-minutes: 30
     permissions:
       contents: 'read'
     strategy:
@@ -176,6 +237,40 @@ jobs:
 
           # the action chowns ARTIFACTS_DIR before the build, so it has to exist
           mkdir -p "${GITHUB_WORKSPACE}/artifacts"
+
+      - name: 'Write the version to build into the Makefile'
+        shell: 'bash'
+        env:
+          MAKEFILE: './openwrt-molecule-package/Makefile'
+          VERSION: '${{ needs.metadata.outputs.version }}'
+          RELEASE: '${{ needs.metadata.outputs.release }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # the same edit the exec plugin of release.config.js makes in the release
+          # commit, so a released package carries the version of its release. Without
+          # a release due this rewrites the Makefile's own values
+          sed -i -E \
+            -e "s/^PKG_VERSION:=.*/PKG_VERSION:=${VERSION}/" \
+            -e "s/^PKG_RELEASE:=.*/PKG_RELEASE:=${RELEASE}/" \
+            "${MAKEFILE}"
+
+          if ! grep -qxF "PKG_VERSION:=${VERSION}" "${MAKEFILE}" \
+            || ! grep -qxF "PKG_RELEASE:=${RELEASE}" "${MAKEFILE}"; then
+            echo "ERROR: ${MAKEFILE} does not carry ${VERSION}-r${RELEASE} after the edit";
+            exit 1;
+          fi
 
       - name: 'Build the package with the OpenWrt SDK'
         uses: 'openwrt/gh-action-sdk@7fc2640243284ecc44f4a9c3f749a61746ee02cb' # v11
@@ -258,18 +353,40 @@ jobs:
     needs:
       - 'metadata'
       - 'build'
-    if: "github.ref_type == 'tag'"
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      needs.metadata.outputs.release-due == 'true'
     runs-on: 'ubuntu-24.04'
     permissions:
-      # create the release and upload its assets
+      # push the release commit and tag and create the release with its assets
       contents: 'write'
+      # the github plugin comments on the issues and pull requests a release
+      # resolves and opens an issue when a release fails
+      issues: 'write'
+      pull-requests: 'write'
     steps:
       - name: 'Harden Runner'
         uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
         with:
           disable-sudo: true
-          # the artifact storage endpoints are no fixed list
-          egress-policy: 'audit'
+          egress-policy: 'block'
+          # npm for semantic-release, GitHub for the push and the release, the
+          # artifact service and its blob storage for the packages
+          allowed-endpoints: >
+            *.blob.core.windows.net:443
+            api.github.com:443
+            github.com:443
+            registry.npmjs.org:443
+            results-receiver.actions.githubusercontent.com:443
+            uploads.github.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          # semantic-release needs every commit and tag since the last release
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: 'Download the packages'
         uses: 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' # v8.0.1
@@ -278,12 +395,9 @@ jobs:
           path: 'dist/'
           merge-multiple: true
 
-      - name: 'Create the release with both packages attached'
+      - name: 'Check that exactly the two packages of this release are attached'
         shell: 'bash'
         env:
-          GH_REPO: '${{ github.repository }}'
-          GH_TOKEN: '${{ github.token }}'
-          TAG: '${{ github.ref_name }}'
           NAME: '${{ needs.metadata.outputs.name }}'
           VERSION: '${{ needs.metadata.outputs.version }}'
           RELEASE: '${{ needs.metadata.outputs.release }}'
@@ -301,21 +415,69 @@ jobs:
             set -x;
           };
 
-          # exactly the two packages, nothing else the artifacts might carry
-          assets=(
-            "dist/${NAME}_${VERSION}-r${RELEASE}_all.ipk"
-            "dist/${NAME}-${VERSION}-r${RELEASE}.apk"
-          )
-          for asset in "${assets[@]}"; do
-            [[ -f "${asset}" ]] || {
-              echo "ERROR: ${asset} is missing";
-              exit 1;
-            };
-          done
+          # the github plugin globs dist/, so dist/ must hold these two files only
+          expected="$(printf '%s\n' \
+            "${NAME}-${VERSION}-r${RELEASE}.apk" \
+            "${NAME}_${VERSION}-r${RELEASE}_all.ipk" | sort)"
+          found="$(find dist -mindepth 1 -printf '%P\n' | sort)"
+          [[ "${found}" == "${expected}" ]] || {
+            echo "ERROR: dist/ holds"
+            echo "${found}"
+            echo "ERROR: expected exactly"
+            echo "${expected}"
+            exit 1;
+          };
 
-          # --verify-tag refuses to create the tag, an existing release fails the run
-          gh release create "${TAG}" "${assets[@]}" \
-            --verify-tag \
-            --title "${TAG}" \
-            --generate-notes
+          echo "INFO: attaching ${expected//$'\n'/ and }"
+
+      - name: 'Create the release'
+        id: 'semantic'
+        uses: 'cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90' # v6.0.0
+        with:
+          semantic_version: '${{ env.SEMANTIC_RELEASE_VERSION }}'
+          extra_plugins: |
+            @semantic-release/changelog@${{ env.SEMANTIC_RELEASE_CHANGELOG_VERSION }}
+            @semantic-release/exec@${{ env.SEMANTIC_RELEASE_EXEC_VERSION }}
+            @semantic-release/git@${{ env.SEMANTIC_RELEASE_GIT_VERSION }}
+            conventional-changelog-conventionalcommits@${{ env.CONVENTIONALCOMMITS_VERSION }}
+        env:
+          # a push made with GITHUB_TOKEN starts no workflow, so the release commit
+          # does not run CI or this workflow again
+          GITHUB_TOKEN: '${{ github.token }}'
+
+      - name: 'Check the release has the version the packages were built for'
+        shell: 'bash'
+        env:
+          PUBLISHED: '${{ steps.semantic.outputs.new_release_published }}'
+          RELEASED: '${{ steps.semantic.outputs.new_release_version }}'
+          VERSION: '${{ needs.metadata.outputs.version }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # semantic-release publishes nothing when main moved on since this run
+          # started. The run of the newer commit releases instead
+          [[ "${PUBLISHED}" == 'true' ]] || {
+            echo "WARNING: no release published, main moved on since this run started";
+            exit 0;
+          };
+
+          # the dry run and this run analyse the same commits and tags, so a
+          # different version means the attached packages carry the wrong one
+          [[ "${RELEASED}" == "${VERSION}" ]] || {
+            echo "ERROR: released ${RELEASED}, but the attached packages are ${VERSION}";
+            exit 1;
+          };
+
+          echo "INFO: released ${RELEASED}"
 ...

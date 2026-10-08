@@ -30,10 +30,12 @@ regular OpenWrt package. The `Build` workflow builds it with the official
 writes the ipk and the 25.12 SDK writes the apk. Pull requests and `main` upload
 both as workflow artifacts.
 
-To cut a release, set `PKG_VERSION` (and reset `PKG_RELEASE` to `1`) in the
-Makefile, merge it and push the tag `v<PKG_VERSION>`. The tag run checks that the
-tag matches `PKG_VERSION`, then publishes the GitHub release with both packages
-attached.
+Releases are cut automatically from the Conventional Commits on `main`, there is
+no manual tagging. [semantic-release](https://semantic-release.gitbook.io) picks
+the next version (`fix` is a patch, `feat` a minor and `feat!`, `fix!` or a
+`BREAKING CHANGE` footer a major release), the packages are built for it and the release commit updates
+`PKG_VERSION` and `CHANGELOG.md` before the tag and the GitHub release with both
+packages are created.
 
 ## Development
 
@@ -48,6 +50,10 @@ every file ASCII. Commit messages follow Conventional Commits with a
 
 The `CI` workflow runs the same checks. It copies the shared sscheib workflows
 because those live in a private repository, which a public repository cannot call.
+
+Renovate runs from the `Renovate` workflow every hour. It needs the repository
+secret `RENOVATE_TOKEN`, a fine-grained personal access token with read and write
+access to commit statuses, contents, issues, pull requests and workflows.
 
 ## License
 
