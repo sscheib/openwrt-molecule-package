@@ -42,7 +42,7 @@ env:
   # renovate: datasource=npm depName=@semantic-release/exec
   SEMANTIC_RELEASE_EXEC_VERSION: '7.1.0'
   # renovate: datasource=npm depName=@semantic-release/git
-  SEMANTIC_RELEASE_GIT_VERSION: '10.0.1'
+  SEMANTIC_RELEASE_GIT_VERSION: '11.0.1'
   # the Conventional Commits preset of the analyzer and the release notes. 10.x renders
   # empty release notes with the changelog writer semantic-release 25 ships (8.4.0)
   # renovate: datasource=npm depName=conventional-changelog-conventionalcommits
