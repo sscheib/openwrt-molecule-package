@@ -1,0 +1,556 @@
+---
+# Lint and commit validation. The jobs are copies of the shared sscheib reusable
+# workflows (one job per tool, prek as the last-resort job for the residual
+# pre-commit hooks, commitlint and the pin-gate): those live in a private
+# repository, which a public repository cannot call.
+name: 'CI'
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - 'main'
+
+  pull_request:
+    branches:
+      - 'main'
+
+  workflow_dispatch: {}
+
+permissions:
+  contents: 'read'
+
+concurrency:
+  group: 'ci-${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: true
+
+env:
+  # renovate: datasource=node-version depName=node
+  NODE_VERSION: '24.12.0'
+
+jobs:
+  actionlint:
+    name: 'actionlint'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            auth.docker.io:443
+            github.com:443
+            index.docker.io:443
+            production.cloudflare.docker.com:443
+            registry-1.docker.io:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Run actionlint'
+        shell: 'bash'
+        env:
+          # renovate: datasource=docker
+          ACTIONLINT_IMAGE: 'docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667'  # yamllint disable-line rule:line-length
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          docker run --rm -v "${PWD}:/repo" -w /repo "${ACTIONLINT_IMAGE}" -color
+
+  yamllint:
+    name: 'yamllint'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            files.pythonhosted.org:443
+            github.com:443
+            pypi.org:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Install uv'
+        uses: 'astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990' # v8.3.2
+
+      - name: 'Run yamllint'
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # reusable-owned tool version (Renovate-maintained; version-pinned, the
+          # documented lint-tool exception to the requirements hash-lock)
+          # renovate: datasource=pypi depName=yamllint
+          uv tool run --from 'yamllint==1.37.1' yamllint .
+
+  markdownlint:
+    name: 'markdownlint'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            github.com:443
+            registry.npmjs.org:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Run markdownlint'
+        uses: 'DavidAnson/markdownlint-cli2-action@6bf21b07787794f89a243495939cd651942aeabe' # v24.1.0
+        with:
+          globs: '**/*.md'
+
+  check-github-workflows:
+    name: 'check-github-workflows'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            files.pythonhosted.org:443
+            github.com:443
+            json.schemastore.org:443
+            pypi.org:443
+            raw.githubusercontent.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Install uv'
+        uses: 'astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990' # v8.3.2
+
+      - name: 'Validate the workflow files against the GitHub Actions schema'
+        shell: 'bash'
+        env:
+          CHECK_TARGET: '.github/workflows/*.yml'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # expand the target glob into an array (avoids unquoted word-splitting)
+          mapfile -t __targets < <(compgen -G "${CHECK_TARGET}" || true)
+          [[ "${#__targets[@]}" -ne 0 ]] || {
+            echo "INFO: no files match '${CHECK_TARGET}', nothing to validate";
+            exit 0;
+          };
+
+          # reusable-owned tool version (Renovate-maintained)
+          # renovate: datasource=pypi depName=check-jsonschema
+          uv tool run --from 'check-jsonschema==0.36.0' \
+            check-jsonschema --builtin-schema vendor.github-workflows "${__targets[@]}"
+
+  renovate-config-validator:
+    name: 'renovate-config-validator'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            ghcr.io:443
+            github.com:443
+            pkg-containers.githubusercontent.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Validate the Renovate configuration'
+        shell: 'bash'
+        env:
+          # renovate: datasource=docker
+          RENOVATE_IMAGE: 'ghcr.io/renovatebot/renovate:42.71.0@sha256:00b07c100a298085126b9e59f0d0004edb0cf827c22b59f18dd7385399482e9d'  # yamllint disable-line rule:line-length
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          docker run --rm -v "${PWD}:/mnt" -w /mnt "${RENOVATE_IMAGE}" \
+            renovate-config-validator --strict || {
+              echo "ERROR: Renovate configuration check failed, failing workflow!";
+              exit 1;
+          };
+
+  gitleaks:
+    name: 'gitleaks'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 'Run gitleaks'
+        uses: 'gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7' # v2.3.9
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+
+  zizmor:
+    name: 'zizmor'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Run zizmor'
+        uses: 'zizmorcore/zizmor-action@6599ee8b7a49aef6a770f63d261d214911a7ce02' # v0.6.0
+        with:
+          # fail the job on any finding; do not upload SARIF (no advanced security)
+          advanced-security: false
+          min-severity: 'low'
+          persona: 'regular'
+
+  jshint:
+    name: 'jshint'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            github.com:443
+            nodejs.org:443
+            registry.npmjs.org:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Install NodeJS'
+        uses: 'actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f' # v6.1.0
+        with:
+          node-version: '${{ env.NODE_VERSION }}'
+
+      - name: 'Run jshint'
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # collect the JavaScript files, excluding node_modules
+          mapfile -d '' __jsFiles < <(find . -type f -name '*.js' -not -path './node_modules/*' -print0)
+
+          [[ "${#__jsFiles[@]}" -ne 0 ]] || {
+            echo "INFO: no JavaScript files found, nothing to lint";
+            exit 0;
+          };
+
+          # reusable-owned tool version (Renovate-maintained)
+          # renovate: datasource=npm depName=jshint
+          npx --yes 'jshint@2.13.6' "${__jsFiles[@]}"
+
+  prek:
+    name: 'prek (residual hooks)'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Skip the hooks a dedicated job already runs'
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # hooks already covered by a dedicated job above; prek only runs the residual
+          coveredHooks="actionlint,yamllint,markdownlint-cli2,check-github-workflows"
+          coveredHooks="${coveredHooks},renovate-config-validator,gitleaks,zizmor,jshint,commitlint"
+          declare -r coveredHooks
+
+          echo "SKIP=${coveredHooks}" >> "${GITHUB_ENV}"
+
+      - name: 'Run prek'
+        # prek-action installs prek, caches the hook environments and runs
+        # `prek run --show-diff-on-failure --color=always --all-files`
+        uses: 'j178/prek-action@e98a699c41eb69ab013a45817a0406469a748f8d' # v2.0.5
+
+  commitlint:
+    name: 'commitlint'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          egress-policy: 'block'
+          allowed-endpoints: >
+            github.com:443
+            nodejs.org:443
+            registry.npmjs.org:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 'Install NodeJS'
+        uses: 'actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f' # v6.1.0
+        with:
+          node-version: '${{ env.NODE_VERSION }}'
+
+      - name: 'Install commitlint (hash-locked via npm ci)'
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # npm ci installs the exact tree from the committed package-lock.json,
+          # verifying every integrity hash
+          npm ci
+
+      - name: 'Validate current commit (last commit) with commitlint'
+        if: "github.event_name != 'pull_request'"
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          npx commitlint --last --verbose
+
+      - name: 'Validate pull request commits with commitlint'
+        if: "github.event_name == 'pull_request'"
+        shell: 'bash'
+        env:
+          HEAD_SHA: '${{ github.event.pull_request.head.sha }}'
+          COMMITS: '${{ github.event.pull_request.commits }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          npx commitlint --from "${HEAD_SHA}~${COMMITS}" --to "${HEAD_SHA}" --verbose
+
+  pin-gate:
+    name: 'pin-gate (digest/hash enforcement)'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            github.com:443
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Fail on any unpinned action or floating container image'
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          declare -i violations=0
+
+          # every `uses:` must reference a 40-char commit SHA, unless it is a
+          # local reference (starts with ./)
+          while IFS= read -r line; do
+            ref="${line#*uses:}"
+            # drop any trailing ' # vX.Y' version comment before stripping spaces
+            ref="${ref%%#*}"
+            ref="$(echo "${ref}" | tr -d " '\"")"
+            # allow local reusable/composite references
+            [[ "${ref}" == ./* ]] && continue
+            # everything else must be pinned to a 40-hex SHA
+            [[ "${ref}" =~ @[0-9a-f]{40}$ ]] || {
+              echo "ERROR: unpinned 'uses': ${ref}";
+              violations+=1;
+            };
+          done < <(grep -rhnE "^\s*(-\s*)?uses:\s*" .github/ 2>/dev/null | sed -E 's/^[^:]+:[0-9]+://')
+
+          # no container image may float on a bare tag: every *image* / *IMAGE* key and
+          # every SDK image tag the build matrix passes as ARCH must carry a digest
+          while IFS= read -r match; do
+            echo "ERROR: floating container image (missing @sha256): ${match}";
+            violations+=1;
+          done < <(grep -rhnE "^\s*(-\s*)?[A-Za-z_-]*(image|IMAGE|sdk):\s*['\"]" .github/ 2>/dev/null \
+            | grep -vE "@sha256:[0-9a-f]{64}['\"]" || true)
+
+          [[ "${violations}" -eq 0 ]] || {
+            echo "ERROR: ${violations} pin violation(s) found";
+            exit 1;
+          };
+
+          echo "INFO: all actions SHA-pinned, no floating container images"
+...

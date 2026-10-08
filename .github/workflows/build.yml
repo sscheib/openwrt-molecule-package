@@ -1,0 +1,321 @@
+---
+# Builds the package with the official OpenWrt SDK action, once per package format:
+# the 24.10 SDK writes the ipk (opkg, OpenWrt 24.10 and older) and the 25.12 SDK writes
+# the apk (apk-tools 3, OpenWrt 25.12 and newer). PKGARCH:=all makes each package
+# install on every target, so one x86_64 SDK per format is enough.
+#
+# Pull requests and main upload both packages as workflow artifacts. A v* tag also
+# checks that the tag is v<PKG_VERSION> and publishes both packages as the GitHub
+# release of that tag, which is what the sscheib.openwrt molecule tests install.
+name: 'Build'
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - 'main'
+    tags:
+      - 'v*'
+
+  pull_request:
+    branches:
+      - 'main'
+
+  workflow_dispatch: {}
+
+permissions:
+  contents: 'read'
+
+concurrency:
+  group: 'build-${{ github.workflow }}-${{ github.ref }}'
+  # a tag run publishes a release, never cancel it half way
+  cancel-in-progress: "${{ github.ref_type != 'tag' }}"
+
+jobs:
+  metadata:
+    name: 'Read the package metadata'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    outputs:
+      name: '${{ steps.read.outputs.name }}'
+      version: '${{ steps.read.outputs.version }}'
+      release: '${{ steps.read.outputs.release }}'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          egress-policy: 'block'
+          allowed-endpoints: >
+            github.com:443
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Read PKG_NAME, PKG_VERSION and PKG_RELEASE from the Makefile'
+        id: 'read'
+        shell: 'bash'
+        env:
+          MAKEFILE: './openwrt-molecule-package/Makefile'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # only the SDK can evaluate the Makefile, so the three assignments are read
+          # literally and must be assigned exactly once to a plain value
+          readVariable() {
+            local -a values
+            mapfile -t values < <(sed -nE "s/^${1}:=(.*)$/\1/p" "${MAKEFILE}")
+            [[ "${#values[@]}" -eq 1 && "${values[0]}" =~ ^[A-Za-z0-9._+-]+$ ]] || {
+              echo "ERROR: ${MAKEFILE} must assign ${1} exactly once to a plain value" >&2;
+              return 1;
+            };
+            echo "${values[0]}"
+          }
+
+          name="$(readVariable 'PKG_NAME')"
+          version="$(readVariable 'PKG_VERSION')"
+          release="$(readVariable 'PKG_RELEASE')"
+
+          echo "INFO: ${name} ${version}-r${release}"
+          {
+            echo "name=${name}"
+            echo "version=${version}"
+            echo "release=${release}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: 'Check that the tag is v<PKG_VERSION>'
+        if: "github.ref_type == 'tag'"
+        shell: 'bash'
+        env:
+          TAG: '${{ github.ref_name }}'
+          VERSION: '${{ steps.read.outputs.version }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          [[ "${TAG}" == "v${VERSION}" ]] || {
+            echo "ERROR: tag '${TAG}' does not match PKG_VERSION '${VERSION}', expected 'v${VERSION}'";
+            exit 1;
+          };
+
+          echo "INFO: tag '${TAG}' matches PKG_VERSION"
+
+  build:
+    name: 'Build the ${{ matrix.format }} with the OpenWrt ${{ matrix.openwrt }} SDK'
+    needs:
+      - 'metadata'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ARCH selects the image ghcr.io/openwrt/sdk:<ARCH> the action builds FROM,
+          # so the digest after the tag pins the SDK exactly
+          - openwrt: '24.10'
+            format: 'ipk'
+            # renovate: datasource=docker depName=ghcr.io/openwrt/sdk
+            sdk: 'x86_64-24.10.8@sha256:b28d5e4087dbd3f815a8bf5440a11e54e6bbd3d7400c3729d872e7940a4a77c1'
+
+          - openwrt: '25.12'
+            format: 'apk'
+            # renovate: datasource=docker depName=ghcr.io/openwrt/sdk
+            sdk: 'x86_64-25.12.5@sha256:e916b7cc555890bdc4725c926e139b888294f0c8f56561b88d8da3a6348616a2'
+
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          # the SDK action chowns the workspace with sudo, and its egress (the SDK
+          # image, buildx, the build cache and the default feeds) is no fixed list
+          egress-policy: 'audit'
+
+      - name: 'Checkout the repository'
+        uses: 'actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8' # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Create the SDK output directory'
+        shell: 'bash'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # the action chowns ARTIFACTS_DIR before the build, so it has to exist
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts"
+
+      - name: 'Build the package with the OpenWrt SDK'
+        uses: 'openwrt/gh-action-sdk@7fc2640243284ecc44f4a9c3f749a61746ee02cb' # v11
+        env:
+          ARCH: '${{ matrix.sdk }}'
+          ARTIFACTS_DIR: '${{ github.workspace }}/artifacts'
+          # build only this package, which also runs the SDK's package checks
+          PACKAGES: '${{ needs.metadata.outputs.name }}'
+          V: "${{ runner.debug == '1' && 's' || '' }}"
+
+      - name: 'Check the package and stage it for upload'
+        id: 'package'
+        shell: 'bash'
+        env:
+          FORMAT: '${{ matrix.format }}'
+          NAME: '${{ needs.metadata.outputs.name }}'
+          VERSION: '${{ needs.metadata.outputs.version }}'
+          RELEASE: '${{ needs.metadata.outputs.release }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # the file names include/package-pack.mk gives a PKGARCH:=all package
+          case "${FORMAT}" in
+            'ipk') expected="${NAME}_${VERSION}-r${RELEASE}_all.ipk" ;;
+            'apk') expected="${NAME}-${VERSION}-r${RELEASE}.apk" ;;
+            *) echo "ERROR: unknown package format '${FORMAT}'"; exit 1 ;;
+          esac
+
+          # the SDK writes the package below bin/packages/<arch>/<feed>/
+          mapfile -t built < <(find artifacts/bin/packages -type f -name "${expected}")
+          [[ "${#built[@]}" -eq 1 ]] || {
+            echo "ERROR: expected exactly one ${expected}, found ${#built[@]}, the SDK wrote:";
+            find artifacts/bin/packages -type f -name '*.[ai]pk' || true;
+            exit 1;
+          };
+
+          # an ipk is a gzipped tar, so prove it is architecture independent and
+          # ships the marker. An apk is an ADB file that needs apk-tools 3 to read
+          if [[ "${FORMAT}" == 'ipk' ]]; then
+            unpacked="$(mktemp -d)"
+            tar -xzf "${built[0]}" -C "${unpacked}"
+            mkdir "${unpacked}/control"
+            tar -xzf "${unpacked}/control.tar.gz" -C "${unpacked}/control"
+            grep -qxF 'Architecture: all' "${unpacked}/control/control" || {
+              echo "ERROR: ${expected} is not 'Architecture: all'";
+              exit 1;
+            };
+            # listed first, grep -q closing a live pipe would fail it under pipefail
+            contents="$(tar -tzf "${unpacked}/data.tar.gz")"
+            grep -qxE "(\./)?usr/share/${NAME}/marker" <<< "${contents}" || {
+              echo "ERROR: ${expected} does not ship /usr/share/${NAME}/marker";
+              exit 1;
+            };
+          fi
+
+          mkdir -p dist
+          cp "${built[0]}" "dist/${expected}"
+          echo "INFO: built ${expected}"
+
+      - name: 'Upload the package'
+        uses: 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' # v7.0.1
+        with:
+          name: 'package-${{ matrix.format }}'
+          path: 'dist/'
+          if-no-files-found: 'error'
+
+  release:
+    name: 'Publish the release'
+    needs:
+      - 'metadata'
+      - 'build'
+    if: "github.ref_type == 'tag'"
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      # create the release and upload its assets
+      contents: 'write'
+    steps:
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          disable-sudo: true
+          # the artifact storage endpoints are no fixed list
+          egress-policy: 'audit'
+
+      - name: 'Download the packages'
+        uses: 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' # v8.0.1
+        with:
+          pattern: 'package-*'
+          path: 'dist/'
+          merge-multiple: true
+
+      - name: 'Create the release with both packages attached'
+        shell: 'bash'
+        env:
+          GH_REPO: '${{ github.repository }}'
+          GH_TOKEN: '${{ github.token }}'
+          TAG: '${{ github.ref_name }}'
+          NAME: '${{ needs.metadata.outputs.name }}'
+          VERSION: '${{ needs.metadata.outputs.version }}'
+          RELEASE: '${{ needs.metadata.outputs.release }}'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          # exactly the two packages, nothing else the artifacts might carry
+          assets=(
+            "dist/${NAME}_${VERSION}-r${RELEASE}_all.ipk"
+            "dist/${NAME}-${VERSION}-r${RELEASE}.apk"
+          )
+          for asset in "${assets[@]}"; do
+            [[ -f "${asset}" ]] || {
+              echo "ERROR: ${asset} is missing";
+              exit 1;
+            };
+          done
+
+          # --verify-tag refuses to create the tag, an existing release fails the run
+          gh release create "${TAG}" "${assets[@]}" \
+            --verify-tag \
+            --title "${TAG}" \
+            --generate-notes
+...

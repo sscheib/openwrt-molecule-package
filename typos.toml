@@ -1,0 +1,7 @@
+# typos spell-checker configuration (https://github.com/crate-ci/typos), derived
+# from the shared sscheib typos.toml. typos only flags KNOWN misspellings, so
+# technical terms need no wordlist.
+[files]
+extend-exclude = [
+  "package-lock.json",
+]

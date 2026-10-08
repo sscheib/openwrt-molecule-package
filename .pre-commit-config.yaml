@@ -1,0 +1,199 @@
+---
+# a plain `prek install` also installs the commit-msg hook commitlint runs in
+default_install_hook_types:
+  - 'pre-commit'
+  - 'commit-msg'
+
+repos:
+  - repo: 'https://github.com/pre-commit/pre-commit-hooks'
+    rev: 'cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b'  # frozen: v5.0.0
+    hooks:
+      - id: 'check-executables-have-shebangs'
+        stages:
+          - 'pre-commit'
+
+      - id: 'check-merge-conflict'
+        stages:
+          - 'pre-commit'
+        args:
+          - '--assume-in-merge'
+
+      - id: 'check-json'
+        stages:
+          - 'pre-commit'
+
+      - id: 'check-shebang-scripts-are-executable'
+        stages:
+          - 'pre-commit'
+
+      - id: 'check-symlinks'
+        stages:
+          - 'pre-commit'
+
+      - id: 'destroyed-symlinks'
+        stages:
+          - 'pre-commit'
+
+      - id: 'detect-private-key'
+        stages:
+          - 'pre-commit'
+
+      - id: 'end-of-file-fixer'
+        stages:
+          - 'pre-commit'
+
+      - id: 'mixed-line-ending'
+        stages:
+          - 'pre-commit'
+        args:
+          - '--fix=no'
+
+      - id: 'trailing-whitespace'
+        stages:
+          - 'pre-commit'
+        args:
+          - '--markdown-linebreak-ext=md'
+
+      - id: 'file-contents-sorter'
+        stages:
+          - 'pre-commit'
+        files: '^.gitignore$'
+        args:
+          - '--unique'
+
+  - repo: 'https://github.com/adrienverge/yamllint'
+    rev: '79a6b2b1392eaf49cdd32ac4f14be1a809bbd8f7'  # frozen: v1.37.1
+    hooks:
+      - id: 'yamllint'
+        stages:
+          - 'pre-commit'
+        pass_filenames: true
+        verbose: true
+
+  - repo: 'https://github.com/DavidAnson/markdownlint-cli2'
+    rev: '06f92c99e930c11230426b5edd775021d25e08a8'  # frozen: v0.23.1
+    hooks:
+      - id: 'markdownlint-cli2'
+        stages:
+          - 'pre-commit'
+        verbose: true
+        # vendored upstream license texts; legal text must not be reformatted to
+        # satisfy line-length / list-prefix rules
+        exclude: '(^|/)LICENSE(\.md)?$'
+
+  - repo: 'https://github.com/alessandrojcm/commitlint-pre-commit-hook'
+    rev: 'e46582c71e18e81b19f77b5c754a6816bdd6c3f5'  # frozen: v9.23.0
+    hooks:
+      - id: 'commitlint'
+        stages:
+          - 'commit-msg'
+        additional_dependencies:
+          # renovate: datasource=npm
+          - 'conventional-changelog-conventionalcommits@9.1.0'
+          # renovate: datasource=npm
+          - 'commitlint-plugin-selective-scope@1.0.1'
+
+  - repo: 'https://github.com/pre-commit/mirrors-jshint'
+    rev: '882622d2d13597740358203e9f2e2ae5976cd149'  # frozen: v2.13.6
+    hooks:
+      - id: 'jshint'
+        stages:
+          - 'pre-commit'
+        types:
+          - 'javascript'
+
+  - repo: 'https://github.com/gitleaks/gitleaks'
+    rev: '6eaad039603a4de39fddd1cf5f727391efe9974e'  # frozen: v8.30.0
+    hooks:
+      - id: 'gitleaks'
+        stages:
+          - 'pre-commit'
+
+  - repo: 'https://github.com/python-jsonschema/check-jsonschema'
+    rev: '0fe8648804a32455c690e0519c217f8cee6a48c6'  # frozen: 0.36.0
+    hooks:
+      - id: 'check-github-workflows'
+        args:
+          - '--verbose'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+  - repo: 'https://github.com/rhysd/actionlint'
+    rev: '0933c147c9d6587653d45fdcb4c497c57a65f9af'  # frozen: v1.7.10
+    hooks:
+      - id: 'actionlint'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+  - repo: 'https://github.com/sirosen/texthooks'
+    rev: '869eecde9a62460e123fa60b83858fac426163e8'  # frozen: 0.7.1
+    hooks:
+      - id: 'alphabetize-codeowners'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+      - id: 'fix-ligatures'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+      - id: 'fix-smartquotes'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+      - id: 'fix-spaces'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+      - id: 'fix-unicode-dashes'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+      - id: 'forbid-bidi-controls'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+  - repo: 'https://github.com/renovatebot/pre-commit-hooks'
+    rev: 'a0a925d223e85973dce85ce780e322edbf2750e5'  # frozen: 42.71.0
+    hooks:
+      - id: 'renovate-config-validator'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+  - repo: 'https://github.com/zizmorcore/zizmor-pre-commit'
+    rev: '64a97fb7fa63188393d3215c6e312f5f9c6d0f78'  # frozen: v1.27.0
+    hooks:
+      - id: 'zizmor'
+        verbose: true
+        stages:
+          - 'pre-commit'
+
+  - repo: 'https://github.com/crate-ci/typos'
+    rev: 'bee27e3a4fd1ea2111cf90ab89cd076c870fce14'  # frozen: v1.48.0
+    hooks:
+      - id: 'typos'
+        stages:
+          - 'pre-commit'
+        verbose: true
+
+  # every file is pure ASCII. A local pygrep hook, because the shared nonascii hook
+  # lives in a private repository a public one cannot clone
+  - repo: 'local'
+    hooks:
+      - id: 'forbid-non-ascii'
+        name: 'forbid non-ASCII characters'
+        language: 'pygrep'
+        entry: '[^\x00-\x7F]'
+        types:
+          - 'text'
+        stages:
+          - 'pre-commit'
+...

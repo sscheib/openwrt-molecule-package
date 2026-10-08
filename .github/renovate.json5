@@ -1,0 +1,165 @@
+{
+  // Self-contained: a public repository cannot extend the private
+  // sscheib/workflows-shared-config preset, so this mirrors the parts of it that
+  // apply here (best-practices base, digest pinning, pre-commit, auto-merge
+  // policy) plus the managers for this repository's own pins.
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    "mergeConfidence:all-badges",
+    ":gitSignOff",
+  ],
+  "assignees": [
+    "sscheib",
+  ],
+  "timezone": "Europe/Berlin",
+  "osvVulnerabilityAlerts": true,
+  "dependencyDashboardOSVVulnerabilitySummary": "all",
+  "commitMessageLowerCase": "never",
+  "regex": {
+    "pinDigests": true,
+  },
+  "pre-commit": {
+    "enabled": true,
+    "pinDigests": true,
+  },
+  "internalChecksFilter": "strict",
+  "separateMajorMinor": true,
+  "separateMinorPatch": true,
+  "separateMultipleMajor": true,
+  "separateMultipleMinor": true,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": [
+      "* 18-22 * * 7",
+    ],
+  },
+  "packageRules": [
+    {
+      "description": "Enable major and minor updates (bump range) for the CI configuration files",
+      "matchFileNames": [
+        ".github/workflows/**",
+        ".pre-commit-config.yaml",
+      ],
+      "major": {
+        "enabled": true,
+      },
+      "minor": {
+        "enabled": true,
+      },
+      "rangeStrategy": "bump",
+    },
+    {
+      "description": "Enable auto-merge for minor and patch updates but exclude version 0.x, as these can introduce breaking changes at any time as per SemVer conventions",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+      ],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true,
+    },
+    {
+      "description": "Enable auto-merge for selected dependencies versioned in the 0.x range",
+      "matchDepNames": [
+        "python-jsonschema/check-jsonschema",
+        "check-jsonschema",
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+      ],
+      "automerge": true,
+    },
+    {
+      "description": "Remove container registry names to avoid too long commit message subjects",
+      "matchDatasources": [
+        "docker",
+      ],
+      "commitMessageTopic": "{{{replace '(?:docker\\.io|ghcr\\.io)/' '' depName}}}",
+    },
+    {
+      "description": "Update renovate related dependencies once a week to avoid spamming",
+      "matchDepNames": [
+        "ghcr.io/renovatebot/renovate",
+        "renovatebot/pre-commit-hooks",
+      ],
+      "groupName": "renovate",
+      "schedule": [
+        "* 18-22 * * 7",
+      ],
+      "separateMajorMinor": false,
+      "separateMinorPatch": false,
+      "separateMultipleMajor": false,
+      "separateMultipleMinor": false,
+    },
+    {
+      "description": "Require dashboard approval for major Node updates",
+      "matchDepNames": [
+        "node",
+      ],
+      "matchUpdateTypes": [
+        "major",
+      ],
+      "dependencyDashboardApproval": true,
+    },
+    {
+      "description": "Keep each OpenWrt SDK on its release series: the 24.10 SDK builds the ipk and the 25.12 SDK builds the apk, so moving to another series is a deliberate change, never an update",
+      "matchDepNames": [
+        "ghcr.io/openwrt/sdk",
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+      ],
+      "enabled": false,
+    },
+  ],
+  "customManagers": [
+    {
+      "description": "Extract in-line dependencies for Python and NodeJS in the pre-commit configuration (shared sscheib convention)",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.pre-commit-config\\.yaml$/",
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>.*?)(\\sversioning=(?<versioning>.*?))?\\s+-\\s+['\"]?(?<depName>@?[^=@\\s]+(?:/[^=@\\s]+)?)(?:==|@)\\s{0,}(?<currentValue>[^'\"\\s\\n]+)",
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
+    },
+    {
+      "description": "Extract the tool versions the workflows run, e.g. # renovate: datasource=pypi depName=yamllint above uv tool run --from 'yamllint==1.37.1'",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+?\\.ya?ml$/",
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>pypi|npm|node-version) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+[^\\n]*?(?:==|@|: ')(?<currentValue>[0-9][^'\"\\s]*)",
+      ],
+      "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
+    },
+    {
+      "description": "Extract the container images the workflows run, e.g. # renovate: datasource=docker above ACTIONLINT_IMAGE: '<image>:<tag>@<digest>'",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+?\\.ya?ml$/",
+      ],
+      "matchStrings": [
+        "# renovate: datasource=docker\\s+[A-Z_]+: '(?<depName>[^:'@]+):(?<currentValue>[^@']+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
+      ],
+      "datasourceTemplate": "docker",
+    },
+    {
+      "description": "Extract the OpenWrt SDK images of the build matrix: ARCH is the ghcr.io/openwrt/sdk tag, x86_64-<release>, followed by its digest",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/build\\.yml$/",
+      ],
+      "matchStrings": [
+        "# renovate: datasource=docker depName=(?<depName>ghcr\\.io/openwrt/sdk)\\s+sdk: '(?<currentValue>x86_64-[0-9]+\\.[0-9]+\\.[0-9]+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "regex:^x86_64-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+    },
+  ],
+}
