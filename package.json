@@ -5,7 +5,7 @@
   "description": "Development dependencies (commitlint) for the openwrt-molecule-package CI.",
   "license": "GPL-3.0-or-later",
   "devDependencies": {
-    "@commitlint/cli": "21.2.1",
+    "@commitlint/cli": "21.2.3",
     "commitlint-plugin-selective-scope": "1.0.2",
     "conventional-changelog-conventionalcommits": "10.2.1"
   }
