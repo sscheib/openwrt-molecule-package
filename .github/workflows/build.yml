@@ -46,7 +46,7 @@ env:
   # the Conventional Commits preset of the analyzer and the release notes. 10.x renders
   # empty release notes with the changelog writer semantic-release 25 ships (8.4.0)
   # renovate: datasource=npm depName=conventional-changelog-conventionalcommits
-  CONVENTIONALCOMMITS_VERSION: '9.2.0'
+  CONVENTIONALCOMMITS_VERSION: '9.3.1'
 
 jobs:
   version:
