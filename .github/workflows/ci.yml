@@ -118,7 +118,7 @@ jobs:
           # reusable-owned tool version (Renovate-maintained; version-pinned, the
           # documented lint-tool exception to the requirements hash-lock)
           # renovate: datasource=pypi depName=yamllint
-          uv tool run --from 'yamllint==1.37.1' yamllint .
+          uv tool run --from 'yamllint==1.38.0' yamllint .
 
   markdownlint:
     name: 'markdownlint'
