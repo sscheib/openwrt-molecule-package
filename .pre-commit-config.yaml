@@ -91,7 +91,7 @@ repos:
           # renovate: datasource=npm
           - 'conventional-changelog-conventionalcommits@9.1.0'
           # renovate: datasource=npm
-          - 'commitlint-plugin-selective-scope@1.0.1'
+          - 'commitlint-plugin-selective-scope@1.0.3'
 
   - repo: 'https://github.com/pre-commit/mirrors-jshint'
     rev: '882622d2d13597740358203e9f2e2ae5976cd149'  # frozen: v2.13.6
