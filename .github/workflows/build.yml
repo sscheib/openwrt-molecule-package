@@ -61,7 +61,7 @@ jobs:
       new-release-version: '${{ steps.semantic.outputs.new_release_version }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -107,7 +107,7 @@ jobs:
       release-due: '${{ steps.read.outputs.release-due }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -208,7 +208,7 @@ jobs:
 
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -409,7 +409,7 @@ jobs:
       pull-requests: 'write'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           disable-sudo: true
           egress-policy: 'block'

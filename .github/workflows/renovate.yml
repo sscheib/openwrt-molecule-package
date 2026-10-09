@@ -73,7 +73,7 @@ jobs:
       secrets-defined: '${{ steps.secret-check.outputs.secrets-defined }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -110,7 +110,7 @@ jobs:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -160,7 +160,7 @@ jobs:
       require-result: '${{ steps.check-access.outputs.require-result }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -216,7 +216,7 @@ jobs:
       packages: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        uses: 'step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25' # v2.22.1
         with:
           # no disable-sudo: the restored cache has to be chowned to the Renovate user
           egress-policy: 'block'
