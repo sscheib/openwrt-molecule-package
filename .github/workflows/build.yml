@@ -36,7 +36,7 @@ env:
   # cycjimmy/semantic-release-action installs semantic-release and the extra
   # plugins itself (it accepts no lockfile), so they are exact-version pinned
   # renovate: datasource=npm depName=semantic-release
-  SEMANTIC_RELEASE_VERSION: '25.0.2'
+  SEMANTIC_RELEASE_VERSION: '25.0.9'
   # renovate: datasource=npm depName=@semantic-release/changelog
   SEMANTIC_RELEASE_CHANGELOG_VERSION: '6.0.3'
   # renovate: datasource=npm depName=@semantic-release/exec
