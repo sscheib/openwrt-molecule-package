@@ -200,7 +200,7 @@ jobs:
 
           # reusable-owned tool version (Renovate-maintained)
           # renovate: datasource=pypi depName=check-jsonschema
-          uv tool run --from 'check-jsonschema==0.36.0' \
+          uv tool run --from 'check-jsonschema==0.36.2' \
             check-jsonschema --builtin-schema vendor.github-workflows "${__targets[@]}"
 
   renovate-config-validator:
