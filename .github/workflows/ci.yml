@@ -228,7 +228,7 @@ jobs:
         shell: 'bash'
         env:
           # renovate: datasource=docker
-          RENOVATE_IMAGE: 'ghcr.io/renovatebot/renovate:42.71.0@sha256:00b07c100a298085126b9e59f0d0004edb0cf827c22b59f18dd7385399482e9d'  # yamllint disable-line rule:line-length
+          RENOVATE_IMAGE: 'ghcr.io/renovatebot/renovate:44.149.2@sha256:4a93eba384999995555d48ff194d5013230fe44142260292cdaf9e7bd45ed949'  # yamllint disable-line rule:line-length
         run: |
           # fail if:
           # - a variable is unbound
