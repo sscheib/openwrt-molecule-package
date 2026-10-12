@@ -87,6 +87,10 @@ repos:
       - id: 'commitlint'
         stages:
           - 'commit-msg'
+        # the Node.js commitlint runs on, pinned like the workflows' NODE_VERSION rather
+        # than whatever node the machine happens to have
+        # renovate: datasource=node-version depName=node
+        language_version: '24.21.0'
         additional_dependencies:
           # renovate: datasource=npm
           - 'conventional-changelog-conventionalcommits@10.4.1'
