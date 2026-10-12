@@ -47,15 +47,20 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # the compressed repository cache handed from one run to the next
+  # the compressed Renovate cache handed from one run to the next
   CACHE_ARCHIVE: 'renovate_cache.tar.gz'
 
   # the directory Renovate uses on its own. Setting cacheDir instead runs into
-  # permission issues inside the Renovate container
-  CACHE_DIR: '/tmp/renovate/cache/renovate/repository'
+  # permission issues inside the Renovate container. It holds the repository
+  # cache AND the package cache: the package cache keeps the fetched release
+  # notes, and without it every run re-fetched the whole changelog span of an
+  # open update (33-48 minutes per run for the renovate group)
+  CACHE_DIR: '/tmp/renovate/cache/renovate'
 
-  # the artifact name, change it to bust the cache
-  CACHE_KEY: 'renovate-cache'
+  # the artifact name, change it to bust the cache. v2: the archive holds the
+  # whole cache directory now, so an archive of the repository cache alone must
+  # not be extracted into it
+  CACHE_KEY: 'renovate-cache-v2'
 
   # 'enabled', 'disabled' or 'reset', a scheduled run has no inputs
   REPO_CACHE: "${{ inputs.repoCache || 'enabled' }}"
