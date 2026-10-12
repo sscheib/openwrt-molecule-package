@@ -16,9 +16,6 @@
   "osvVulnerabilityAlerts": true,
   "dependencyDashboardOSVVulnerabilitySummary": "all",
   "commitMessageLowerCase": "never",
-  "regex": {
-    "pinDigests": true,
-  },
   "pre-commit": {
     "enabled": true,
     "pinDigests": true,
@@ -36,6 +33,13 @@
     ],
   },
   "packageRules": [
+    {
+      "description": "Pin the digests of the dependencies the custom regex managers extract. A top-level regex block is no longer accepted: the regex manager is custom.regex, matched here",
+      "matchManagers": [
+        "custom.regex",
+      ],
+      "pinDigests": true,
+    },
     {
       "description": "Keep the semantic-release preset below 10: 10.x renders empty release notes with the changelog writer semantic-release 25 ships",
       "matchFileNames": [
@@ -135,6 +139,7 @@
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>.*?)(\\sversioning=(?<versioning>.*?))?\\s+-\\s+['\"]?(?<depName>@?[^=@\\s]+(?:/[^=@\\s]+)?)(?:==|@)\\s{0,}(?<currentValue>[^'\"\\s\\n]+)",
+        "# renovate: datasource=(?<datasource>node-version) depName=(?<depName>\\S+)\\s+language_version: '(?<currentValue>[0-9][^'\"\\s]*)'",
       ],
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
     },
