@@ -1,4 +1,3 @@
-// jshint esversion: 6
 module.exports = {
     parserPreset: 'conventional-changelog-conventionalcommits',
     rules: {

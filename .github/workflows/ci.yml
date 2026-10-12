@@ -309,8 +309,8 @@ jobs:
           min-severity: 'low'
           persona: 'regular'
 
-  jshint:
-    name: 'jshint'
+  eslint:
+    name: 'eslint'
     runs-on: 'ubuntu-24.04'
     permissions:
       contents: 'read'
@@ -336,7 +336,7 @@ jobs:
         with:
           node-version: '${{ env.NODE_VERSION }}'
 
-      - name: 'Run jshint'
+      - name: 'Run eslint'
         shell: 'bash'
         run: |
           # fail if:
@@ -352,17 +352,31 @@ jobs:
             set -x;
           };
 
-          # collect the JavaScript files, excluding node_modules
-          mapfile -d '' __jsFiles < <(find . -type f -name '*.js' -not -path './node_modules/*' -print0)
+          # collect the JavaScript, JSON and JSON5 files, excluding node_modules and lock files
+          mapfile -d '' __files < <(
+            find . -type f \( -name '*.js' -o -name '*.cjs' -o -name '*.mjs' -o -name '*.json' -o -name '*.json5' \) \
+              -not -path './node_modules/*' -not -path './.git/*' -not -name 'package-lock.json' -print0
+          )
 
-          [[ "${#__jsFiles[@]}" -ne 0 ]] || {
-            echo "INFO: no JavaScript files found, nothing to lint";
+          [[ "${#__files[@]}" -ne 0 ]] || {
+            echo "INFO: no JavaScript or JSON files found, nothing to lint";
             exit 0;
           };
 
-          # reusable-owned tool version (Renovate-maintained)
-          # renovate: datasource=npm depName=jshint
-          npx --yes 'jshint@2.13.6' "${__jsFiles[@]}"
+          [[ -f 'eslint.config.mjs' ]] || {
+            echo "ERROR: eslint.config.mjs is missing: copy it from sscheib/workflows-shared-config config/";
+            exit 1;
+          };
+
+          # eslint and its plugins are devDependencies of the caller, installed hash-locked from
+          # its committed package-lock.json (the npm hash-lock policy) rather than ad hoc
+          grep -q '"eslint"' package.json || {
+            echo "ERROR: package.json lacks the eslint devDependencies (eslint, @eslint/js, @eslint/json, globals)";
+            exit 1;
+          };
+          npm ci
+
+          npx --no-install eslint --max-warnings=0 --no-warn-ignored "${__files[@]}"
 
   hadolint:
     name: 'hadolint'
@@ -425,7 +439,7 @@ jobs:
 
           # hooks already covered by a dedicated job above; prek only runs the residual
           coveredHooks="actionlint,yamllint,markdownlint-cli2,check-github-workflows"
-          coveredHooks="${coveredHooks},renovate-config-validator,gitleaks,zizmor,jshint,commitlint"
+          coveredHooks="${coveredHooks},renovate-config-validator,gitleaks,zizmor,eslint,commitlint"
           coveredHooks="${coveredHooks},hadolint-docker"
           declare -r coveredHooks
 
