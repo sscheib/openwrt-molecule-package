@@ -30,7 +30,9 @@ export default [
     ...js.configs.recommended,
     languageOptions: {
       sourceType: 'module',
-      globals: { ...globals.node },
+      // an ES module has no require, module, exports, __dirname or __filename: nodeBuiltin leaves
+      // them undeclared, so no-undef reports a use that would fail at runtime
+      globals: { ...globals.nodeBuiltin },
     },
   },
   {
