@@ -18,10 +18,6 @@ repos:
         args:
           - '--assume-in-merge'
 
-      - id: 'check-json'
-        stages:
-          - 'pre-commit'
-
       - id: 'check-shebang-scripts-are-executable'
         stages:
           - 'pre-commit'
@@ -97,14 +93,33 @@ repos:
           # renovate: datasource=npm
           - 'commitlint-plugin-selective-scope@1.0.3'
 
-  - repo: 'https://github.com/pre-commit/mirrors-jshint'
-    rev: '882622d2d13597740358203e9f2e2ae5976cd149'  # frozen: v2.13.6
+  - repo: 'https://github.com/pre-commit/mirrors-eslint'
+    rev: '10e29bbf6681d33cb90d555ea2f7ea71e162d259'  # frozen: v10.12.0
     hooks:
-      - id: 'jshint'
+      - id: 'eslint'
         stages:
           - 'pre-commit'
+        # the Node.js eslint runs on, pinned like the commitlint hook
+        # renovate: datasource=node-version depName=node
+        language_version: '24.21.0'
+        files: '\.(js|cjs|mjs|json|json5)$'
+        exclude: '(^|/)package-lock\.json$'
+        # the mirror's hook definition restricts itself to javascript, which would leave the
+        # json and json5 files the shared eslint.config.mjs lints unchecked
         types:
-          - 'javascript'
+          - 'file'
+        args:
+          - '--max-warnings=0'
+          - '--no-warn-ignored'
+        additional_dependencies:
+          # renovate: datasource=npm
+          - 'eslint@10.12.0'
+          # renovate: datasource=npm
+          - '@eslint/js@10.0.1'
+          # renovate: datasource=npm
+          - '@eslint/json@2.1.1'
+          # renovate: datasource=npm
+          - 'globals@17.13.0'
 
   - repo: 'https://github.com/gitleaks/gitleaks'
     rev: '6eaad039603a4de39fddd1cf5f727391efe9974e'  # frozen: v8.30.0

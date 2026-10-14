@@ -1,4 +1,3 @@
-// jshint esversion: 6
 // semantic-release configuration, run by the release job of the Build workflow.
 // The commit-analyzer derives the next version from the Conventional Commits on
 // main, the exec plugin writes it into the package Makefile and the git plugin

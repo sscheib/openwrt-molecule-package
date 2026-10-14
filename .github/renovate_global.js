@@ -1,4 +1,3 @@
-// jshint esversion: 6
 // Global (self-hosted) Renovate configuration the Renovate workflow passes as its
 // configurationFile. The repository configuration lives in .github/renovate.json5.
 module.exports = {
