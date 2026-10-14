@@ -86,7 +86,7 @@ repos:
         # the Node.js commitlint runs on, pinned like the workflows' NODE_VERSION rather
         # than whatever node the machine happens to have
         # renovate: datasource=node-version depName=node
-        language_version: '24.21.0'
+        language_version: '24.22.0'
         additional_dependencies:
           # renovate: datasource=npm
           - 'conventional-changelog-conventionalcommits@10.4.1'
@@ -101,7 +101,7 @@ repos:
           - 'pre-commit'
         # the Node.js eslint runs on, pinned like the commitlint hook
         # renovate: datasource=node-version depName=node
-        language_version: '24.21.0'
+        language_version: '24.22.0'
         files: '\.(js|cjs|mjs|json|json5)$'
         exclude: '(^|/)package-lock\.json$'
         # the mirror's hook definition restricts itself to javascript, which would leave the
