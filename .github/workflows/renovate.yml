@@ -71,7 +71,7 @@ env:
 jobs:
   check-secrets:
     name: 'Check if required secrets are available'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     outputs:
@@ -110,7 +110,7 @@ jobs:
     needs:
       - 'check-secrets'
     if: "needs.check-secrets.outputs.secrets-defined == 'true'"
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -158,7 +158,7 @@ jobs:
     name: 'Check the triggering actor has write permission'
     needs:
       - 'renovate-config-validator'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     outputs:
@@ -211,7 +211,7 @@ jobs:
     needs:
       - 'check-user-permissions'
     if: "needs.check-user-permissions.outputs.require-result == 'true'"
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       # Renovate pushes and opens pull requests with RENOVATE_TOKEN. GITHUB_TOKEN
       # only checks out the repository and reads the previous run's cache artifact
