@@ -82,6 +82,10 @@ jobs:
         with:
           disable-sudo: true
           egress-policy: 'block'
+          # the job makes no network call; one GitHub endpoint keeps the allowlist
+          # non-empty, which harden-runner otherwise reports with a warning
+          allowed-endpoints: >
+            github.com:443
 
       - name: 'Check if all required secrets are defined'
         id: 'secret-check'

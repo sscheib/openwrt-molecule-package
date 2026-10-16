@@ -98,6 +98,10 @@ jobs:
 
       - name: 'Install uv'
         uses: 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884' # v10.3.0
+        with:
+          # the tool comes from a pinned uvx call; with nothing to key a cache on, the
+          # default cache only warns that no requirements file matched
+          enable-cache: false
 
       - name: 'Run yamllint'
         shell: 'bash'
@@ -172,6 +176,10 @@ jobs:
 
       - name: 'Install uv'
         uses: 'astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884' # v10.3.0
+        with:
+          # the tool comes from a pinned uvx call; with nothing to key a cache on, the
+          # default cache only warns that no requirements file matched
+          enable-cache: false
 
       - name: 'Validate the workflow files against the GitHub Actions schema'
         shell: 'bash'
