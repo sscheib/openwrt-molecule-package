@@ -1,0 +1,80 @@
+---
+# THROWAWAY diagnostic, never merged: proves or disproves that systemd-resolved
+# leaks DNS lookups to the Azure resolver (168.63.129.16) over TCP once the
+# harden-runner agent has taken over DNS, handing processes an IP the agent
+# never allowed. Mirrors the failing renovate.yml permission-check job (same
+# harden-runner pin, block policy and allowlist); sudo stays enabled because
+# the capture needs it.
+name: 'diag-harden-runner-dns'
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - 'diag/harden-runner-dns'
+
+permissions: {}
+
+jobs:
+  probe:
+    name: 'probe ${{ matrix.n }}'
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: 'read'
+    strategy:
+      fail-fast: false
+      matrix:
+        n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - name: 'Record the resolver setup and start the DNS capture'
+        shell: 'bash'
+        run: |
+          set -Eeuo pipefail
+          echo "region: $(curl -s -m 3 -H 'Metadata: true' 'http://169.254.169.254/metadata/instance/compute/location?api-version=2021-02-01&format=text' || echo unknown)"
+          echo '### resolvectl status BEFORE harden-runner'
+          resolvectl status
+          sudo sh -c "nohup tcpdump -i any -nn -U -w /tmp/dns.pcap 'port 53' > /tmp/tcpdump.out 2>&1 &"
+          sleep 2
+          date -u '+capture started %T'
+
+      - name: 'Harden Runner'
+        uses: 'step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2' # v2.22.2
+        with:
+          egress-policy: 'block'
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
+
+      - name: 'Probe api.github.com right after the agent took over'
+        shell: 'bash'
+        run: |
+          set -Euo pipefail
+          for i in $(seq 1 15); do
+            ts="$(date -u '+%T.%3N')"
+            curl_out="$(curl -sS -o /dev/null -m 5 -w '%{remote_ip} %{http_code}' 'https://api.github.com/zen' 2>&1 || true)"
+            scope="$(resolvectl query --cache=no api.github.com 2>&1 | tr '\n' ' ' | sed -E 's/ +/ /g')"
+            echo "PROBE ${i} ${ts} curl=[${curl_out}] resolvectl=[${scope}]"
+            sleep 1
+          done
+
+      - name: 'Evaluate the capture and the resolver journal'
+        if: '${{ always() }}'
+        shell: 'bash'
+        run: |
+          set -Euo pipefail
+          sudo pkill -INT tcpdump || true
+          sleep 2
+          echo '### resolvectl status AFTER harden-runner'
+          resolvectl status
+          echo '### DNS to the Azure resolver, UDP'
+          sudo tcpdump -nn -r /tmp/dns.pcap 'udp and host 168.63.129.16' 2>/dev/null | grep -c . || true
+          echo '### DNS to the Azure resolver, TCP (packets)'
+          sudo tcpdump -nn -r /tmp/dns.pcap 'tcp and host 168.63.129.16' 2>/dev/null | grep -c . || true
+          echo '### api.github.com answers on the wire (any resolver)'
+          sudo tcpdump -nn -v -r /tmp/dns.pcap 2>/dev/null | grep -E 'api\.github\.com\. .*A [0-9]' || true
+          echo '### TCP DNS exchanges with the Azure resolver'
+          sudo tcpdump -nn -A -r /tmp/dns.pcap 'tcp and host 168.63.129.16 and tcp[tcpflags] & tcp-push != 0' 2>/dev/null | head -60 || true
+          echo '### systemd-resolved journal'
+          sudo journalctl -u systemd-resolved --no-pager -o short-precise | tail -40
+          echo '### summary'
+          echo "SUMMARY tcp_azure_packets=$(sudo tcpdump -nn -r /tmp/dns.pcap 'tcp and host 168.63.129.16' 2>/dev/null | grep -c .)"
+...
