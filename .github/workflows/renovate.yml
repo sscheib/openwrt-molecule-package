@@ -137,7 +137,7 @@ jobs:
         shell: 'bash'
         env:
           # renovate: datasource=docker
-          RENOVATE_IMAGE: 'ghcr.io/renovatebot/renovate:44.167.5@sha256:c33150ec6407624a9399a2d827fd125becafdbe4519d7584488cbdd17f99081e'  # yamllint disable-line rule:line-length
+          RENOVATE_IMAGE: 'ghcr.io/renovatebot/renovate:44.181.6@sha256:aa5593807ecc64295edba8085d75f36f27c82b47e3baf77061108ff6e2f2024b'  # yamllint disable-line rule:line-length
         run: |
           # fail if:
           # - a variable is unbound
@@ -306,10 +306,10 @@ jobs:
           };
 
       - name: 'Run Renovate'
-        uses: 'renovatebot/github-action@f0f41e5f2e706165f6814b1d0f0d0e319de7d1d9' # v46.3.8
+        uses: 'renovatebot/github-action@a63d9a7bc606f7336fd20b47f2f32259a35e6213' # v46.3.9
         with:
           # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
-          renovate-version: '44.167.5'
+          renovate-version: '44.181.6'
           configurationFile: '.github/renovate_global.js'
           token: '${{ secrets.RENOVATE_TOKEN }}'
         env:
