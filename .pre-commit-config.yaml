@@ -119,7 +119,7 @@ repos:
           # renovate: datasource=npm
           - '@eslint/json@2.1.1'
           # renovate: datasource=npm
-          - 'globals@17.13.0'
+          - 'globals@17.14.0'
 
   - repo: 'https://github.com/gitleaks/gitleaks'
     rev: '6eaad039603a4de39fddd1cf5f727391efe9974e'  # frozen: v8.30.0
