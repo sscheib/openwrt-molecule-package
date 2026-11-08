@@ -29,7 +29,7 @@ env:
 jobs:
   actionlint:
     name: 'actionlint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -74,7 +74,7 @@ jobs:
 
   yamllint:
     name: 'yamllint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -126,7 +126,7 @@ jobs:
 
   markdownlint:
     name: 'markdownlint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -151,7 +151,7 @@ jobs:
 
   check-github-workflows:
     name: 'check-github-workflows'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -213,7 +213,7 @@ jobs:
 
   renovate-config-validator:
     name: 'renovate-config-validator'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -259,7 +259,7 @@ jobs:
 
   gitleaks:
     name: 'gitleaks'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -287,7 +287,7 @@ jobs:
 
   zizmor:
     name: 'zizmor'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -321,7 +321,7 @@ jobs:
 
   eslint:
     name: 'eslint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -390,7 +390,7 @@ jobs:
 
   hadolint:
     name: 'hadolint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -417,7 +417,7 @@ jobs:
 
   prek:
     name: 'prek (residual hooks)'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -462,7 +462,7 @@ jobs:
 
   commitlint:
     name: 'commitlint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
@@ -550,7 +550,7 @@ jobs:
 
   pin-gate:
     name: 'pin-gate (digest/hash enforcement)'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     permissions:
       contents: 'read'
     steps:
