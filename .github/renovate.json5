@@ -155,7 +155,7 @@
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
     },
     {
-      "description": "Extract the container images the workflows run, e.g. # renovate: datasource=docker above ACTIONLINT_IMAGE: '<image>:<tag>@<digest>'",
+      "description": "Extract the container images the workflows run, e.g. # renovate: datasource=docker above JACTIONLINT_IMAGE: '<image>:<tag>@<digest>'",
       "customType": "regex",
       "managerFilePatterns": [
         "/^\\.github/workflows/.+?\\.ya?ml$/",
@@ -164,6 +164,17 @@
         "# renovate: datasource=docker\\s+[A-Z_]+: '(?<depName>[^:'@]+):(?<currentValue>[^@']+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
       ],
       "datasourceTemplate": "docker",
+    },
+    {
+      "description": "Extract the gh CLI extensions the workflows install, e.g. # renovate: datasource=github-releases depName=github/gh-actions-lock above GH_ACTIONS_LOCK_VERSION: 'v0.4.1'",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+?\\.ya?ml$/",
+      ],
+      "matchStrings": [
+        "# renovate: datasource=github-releases depName=(?<depName>\\S+)\\s+[A-Z_]+: '(?<currentValue>v[0-9][^']*)'",
+      ],
+      "datasourceTemplate": "github-releases",
     },
     {
       "description": "Extract the Renovate version the Renovate workflow runs, e.g. # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate above renovate-version: '42.71.0'",
