@@ -132,6 +132,17 @@
   ],
   "customManagers": [
     {
+      "description": "Update the pre-commit hook revisions pinned to a commit with a '# frozen: <tag>' comment (prek autoupdate --freeze). The built-in pre-commit manager reads the commit as the version and can never update such a pin, so this reads the commit as the digest and the comment as the version, and rewrites both",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)\\.pre-commit-config\\.yaml$/",
+      ],
+      "matchStrings": [
+        "repo: '?https://github\\.com/(?<depName>[^/'\\s]+/[^/'\\s]+?)'?\\s+rev: '?(?<currentDigest>[0-9a-f]{40})'?\\s+# frozen: (?<currentValue>[^\\s']+)",
+      ],
+      "datasourceTemplate": "github-tags",
+    },
+    {
       "description": "Extract in-line dependencies for Python and NodeJS in the pre-commit configuration (shared sscheib convention)",
       "customType": "regex",
       "managerFilePatterns": [

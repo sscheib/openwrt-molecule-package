@@ -31,12 +31,11 @@ on:  # yamllint disable-line rule:truthy
           - 'error'
           - 'fatal'
 
+  # once a week and never more often: Sunday 18:00 UTC (19:00 or 20:00 in Berlin) lies
+  # inside the Sunday 18-22 Europe/Berlin window renovate.json5 gives lock file
+  # maintenance, so it gets its slot. A cache reset is a manual dispatch (repoCache: reset)
   schedule:
-    # run renovate once an hour
-    - cron: '0 * * * *'
-
-    # start from an empty cache once a week on Monday night
-    - cron: '30 0 * * 1'
+    - cron: '0 18 * * 0'
 
 permissions:
   contents: 'read'
@@ -64,9 +63,6 @@ env:
 
   # 'enabled', 'disabled' or 'reset', a scheduled run has no inputs
   REPO_CACHE: "${{ inputs.repoCache || 'enabled' }}"
-
-  # the weekly schedule skips restoring the previous cache
-  CACHE_RESET: "${{ github.event.schedule == '30 0 * * 1' }}"
 
 jobs:
   check-secrets:
@@ -267,7 +263,7 @@ jobs:
 
       - name: 'Download cache of the previous workflow run'
         uses: 'dawidd6/action-download-artifact@v28'
-        if: "env.REPO_CACHE == 'enabled' && env.CACHE_RESET != 'true'"
+        if: "env.REPO_CACHE == 'enabled'"
         id: 'artifact-download'
         with:
           name: '${{ env.CACHE_KEY }}'
@@ -277,7 +273,6 @@ jobs:
       - name: 'Extract Renovate cache to improve performance'
         if: >-
           env.REPO_CACHE == 'enabled' &&
-          env.CACHE_RESET != 'true' &&
           steps.artifact-download.outputs.found_artifact == 'true'
         shell: 'bash'
         run: |
