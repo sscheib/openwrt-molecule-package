@@ -27,35 +27,33 @@ env:
   NODE_VERSION: '24.22.2'
 
 jobs:
-  actionlint:
-    name: 'actionlint'
+  jactionlint:
+    name: 'jactionlint'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
           allowed-endpoints: >
-            auth.docker.io:443
             github.com:443
-            index.docker.io:443
-            production.cloudflare.docker.com:443
-            production.cloudfront.docker.com:443
-            registry-1.docker.io:443
+            ghcr.io:443
+            pkg-containers.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
-      - name: 'Run actionlint'
+      - name: 'Run jactionlint'
         shell: 'bash'
         env:
           # renovate: datasource=docker
-          ACTIONLINT_IMAGE: 'docker.io/rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667'  # yamllint disable-line rule:line-length
+          JACTIONLINT_IMAGE: 'ghcr.io/jdx/jactionlint:2.5.0@sha256:bf19991ded59742f4dae196efeba63c20abc2bf3744a85246412ee80d2b2f51d'  # yamllint disable-line rule:line-length
         run: |
           # fail if:
           # - a variable is unbound
@@ -70,16 +68,19 @@ jobs:
             set -x;
           };
 
-          docker run --rm -v "${PWD}:/repo" -w /repo "${ACTIONLINT_IMAGE}" -color
+          # --strict-exit fails on findings of level warn and info as well; jactionlint
+          # also checks .github/workflows/actions.lock against the workflows
+          docker run --rm -v "${PWD}:/repo" -w /repo "${JACTIONLINT_IMAGE}" --color=always --strict-exit
 
   yamllint:
     name: 'yamllint'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -92,12 +93,12 @@ jobs:
             releases.astral.sh:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
       - name: 'Install uv'
-        uses: 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2' # v10.3.3
+        uses: 'astral-sh/setup-uv@v10.3.3'
         with:
           # the tool comes from a pinned uvx call; with nothing to key a cache on, the
           # default cache only warns that no requirements file matched
@@ -127,11 +128,12 @@ jobs:
   markdownlint:
     name: 'markdownlint'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -140,23 +142,24 @@ jobs:
             registry.npmjs.org:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
       - name: 'Run markdownlint'
-        uses: 'DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34' # v25.0.0
+        uses: 'DavidAnson/markdownlint-cli2-action@v25.0.0'
         with:
           globs: '**/*.md'
 
   check-github-workflows:
     name: 'check-github-workflows'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -170,12 +173,12 @@ jobs:
             releases.astral.sh:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
       - name: 'Install uv'
-        uses: 'astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2' # v10.3.3
+        uses: 'astral-sh/setup-uv@v10.3.3'
         with:
           # the tool comes from a pinned uvx call; with nothing to key a cache on, the
           # default cache only warns that no requirements file matched
@@ -214,11 +217,12 @@ jobs:
   renovate-config-validator:
     name: 'renovate-config-validator'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -228,7 +232,7 @@ jobs:
             pkg-containers.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
@@ -260,11 +264,12 @@ jobs:
   gitleaks:
     name: 'gitleaks'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -275,24 +280,25 @@ jobs:
             release-assets.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: 'Run gitleaks'
-        uses: 'gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e' # v3.0.0
+        uses: 'gitleaks/gitleaks-action@v3.0.0'
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
 
   zizmor:
     name: 'zizmor'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -307,12 +313,12 @@ jobs:
             release-assets.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
       - name: 'Run zizmor'
-        uses: 'zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd' # v0.8.1
+        uses: 'zizmorcore/zizmor-action@v0.8.1'
         with:
           # fail the job on any finding; do not upload SARIF (no advanced security)
           advanced-security: false
@@ -322,11 +328,12 @@ jobs:
   eslint:
     name: 'eslint'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -337,12 +344,12 @@ jobs:
             release-assets.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
       - name: 'Install NodeJS'
-        uses: 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1' # v7.1.0
+        uses: 'actions/setup-node@v7.1.0'
         with:
           node-version: '${{ env.NODE_VERSION }}'
 
@@ -391,43 +398,62 @@ jobs:
   hadolint:
     name: 'hadolint'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
-          # the action is a container action built FROM a ghcr.io hadolint image
           allowed-endpoints: >
             ghcr.io:443
             github.com:443
             pkg-containers.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
+      # the image hadolint/hadolint-action builds FROM, run directly: the workflow
+      # lockfile pins actions, never the base image a container action builds from
       - name: 'Run hadolint'
-        uses: 'hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387' # v3.5.0
-        with:
-          dockerfile: 'sdk/Dockerfile'
+        shell: 'bash'
+        env:
+          # renovate: datasource=docker
+          HADOLINT_IMAGE: 'ghcr.io/hadolint/hadolint:v2.15.1-debian@sha256:9a3944b7fddcb947d1ffd90829ac1a6e5c30479223358f249d8b96c7d0019e27'  # yamllint disable-line rule:line-length
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          docker run --rm -v "${PWD}:/repo:ro" -w /repo "${HADOLINT_IMAGE}" hadolint 'sdk/Dockerfile'
 
   prek:
     name: 'prek (residual hooks)'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 15
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           egress-policy: 'audit'
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
@@ -448,7 +474,7 @@ jobs:
           };
 
           # hooks already covered by a dedicated job above; prek only runs the residual
-          coveredHooks="actionlint,yamllint,markdownlint-cli2,check-github-workflows"
+          coveredHooks="jactionlint,yamllint,markdownlint-cli2,check-github-workflows"
           coveredHooks="${coveredHooks},renovate-config-validator,gitleaks,zizmor,eslint,commitlint"
           coveredHooks="${coveredHooks},hadolint-docker"
           declare -r coveredHooks
@@ -458,16 +484,17 @@ jobs:
       - name: 'Run prek'
         # prek-action installs prek, caches the hook environments and runs
         # `prek run --show-diff-on-failure --color=always --all-files`
-        uses: 'j178/prek-action@44924fe9ef4a6f88253c4b6b1bf11c689d3ce53d' # v3.1.0
+        uses: 'j178/prek-action@v3.1.0'
 
   commitlint:
     name: 'commitlint'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           egress-policy: 'block'
           allowed-endpoints: >
@@ -477,13 +504,13 @@ jobs:
             release-assets.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           fetch-depth: 0
           persist-credentials: false
 
       - name: 'Install NodeJS'
-        uses: 'actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1' # v7.1.0
+        uses: 'actions/setup-node@v7.1.0'
         with:
           node-version: '${{ env.NODE_VERSION }}'
 
@@ -549,25 +576,29 @@ jobs:
           npx commitlint --from "${HEAD_SHA}~${COMMITS}" --to "${HEAD_SHA}" --verbose
 
   pin-gate:
-    name: 'pin-gate (digest/hash enforcement)'
+    name: 'pin-gate (lockfile/digest enforcement)'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
           allowed-endpoints: >
+            api.github.com:443
             github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
 
       - name: 'Checkout repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
-      - name: 'Fail on any unpinned action or floating container image'
+      - name: 'Fail on any unpinned reusable workflow or floating container image'
         shell: 'bash'
         run: |
           # fail if:
@@ -585,20 +616,28 @@ jobs:
 
           declare -i violations=0
 
-          # every `uses:` must reference a 40-char commit SHA, unless it is a
-          # local reference (starts with ./)
+          # the actions a step uses are pinned by .github/workflows/actions.lock (verified
+          # below). The lockfile cannot pin a reusable workflow call (jobs.<id>.uses) or a
+          # docker:// step, so those must still reference a 40-char commit SHA or an image
+          # digest. Local references (./ and the lockfile's $/ form) are pinned by the
+          # commit itself
           while IFS= read -r line; do
             ref="${line#*uses:}"
             # drop any trailing ' # vX.Y' version comment before stripping spaces
             ref="${ref%%#*}"
             ref="$(echo "${ref}" | tr -d " '\"")"
-            # allow local reusable/composite references
-            [[ "${ref}" == ./* ]] && continue
-            # everything else must be pinned to a 40-hex SHA
-            [[ "${ref}" =~ @[0-9a-f]{40}$ ]] || {
-              echo "ERROR: unpinned 'uses': ${ref}";
-              violations+=1;
-            };
+            [[ "${ref}" == ./* || "${ref}" == \$/* ]] && continue
+            if [[ "${ref}" == docker://* ]]; then
+              [[ "${ref}" =~ @sha256:[0-9a-f]{64}$ ]] || {
+                echo "ERROR: docker step without an image digest: ${ref}";
+                violations+=1;
+              };
+            elif [[ "${ref}" == */.github/workflows/* ]]; then
+              [[ "${ref}" =~ @[0-9a-f]{40}$ ]] || {
+                echo "ERROR: reusable workflow not pinned to a commit SHA: ${ref}";
+                violations+=1;
+              };
+            fi
           done < <(grep -rhnE "^\s*(-\s*)?uses:\s*" .github/ 2>/dev/null | sed -E 's/^[^:]+:[0-9]+://')
 
           # no container image may float on a bare tag: every *image* / *IMAGE* key and
@@ -614,5 +653,36 @@ jobs:
             exit 1;
           };
 
-          echo "INFO: all actions SHA-pinned, no floating container images"
+          echo "INFO: reusable workflows SHA-pinned, no floating container images"
+
+      - name: 'Verify the workflow lockfile'
+        shell: 'bash'
+        env:
+          GH_TOKEN: '${{ github.token }}'
+          # an immutable release: its assets cannot change once published
+          # renovate: datasource=github-releases depName=github/gh-actions-lock
+          GH_ACTIONS_LOCK_VERSION: 'v0.4.1'
+        run: |
+          # fail if:
+          # - a variable is unbound
+          # - any command fails
+          # - a command in a pipe fails
+          # - a command in a sub-shell fails
+          set -Eeuo pipefail
+
+          # enable debug if runner runs in debug
+          [[ "${{ runner.debug }}" != '1' ]] || {
+            echo "INFO: Enabling bash trace";
+            set -x;
+          };
+
+          gh extension install 'github/gh-actions-lock' --pin "${GH_ACTIONS_LOCK_VERSION}"
+
+          # the same checks a fix run makes, without writing: every action a step uses
+          # (transitive ones included) has a lockfile entry, and every locked commit is
+          # reachable from its recorded tag or branch upstream
+          gh actions-lock --verify || {
+            echo "ERROR: actions.lock is incomplete or does not verify; run 'gh actions-lock', commit the result";
+            exit 1;
+          };
 ...

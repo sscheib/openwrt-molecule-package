@@ -53,6 +53,7 @@ jobs:
     name: 'Determine the next release'
     if: "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       # even a dry run proves it could push the release (git push --dry-run)
       contents: 'write'
@@ -61,7 +62,7 @@ jobs:
       new-release-version: '${{ steps.semantic.outputs.new_release_version }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -71,7 +72,7 @@ jobs:
             registry.npmjs.org:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           # semantic-release needs every commit and tag since the last release
           fetch-depth: 0
@@ -79,7 +80,7 @@ jobs:
 
       - name: 'Determine the next release with a semantic-release dry run'
         id: 'semantic'
-        uses: 'cycjimmy/semantic-release-action@ad51787758d9654d5a75150a89a6fa9b3ccef95e' # v8.1.4
+        uses: 'cycjimmy/semantic-release-action@v8.1.4'
         with:
           dry_run: true
           semantic_version: '${{ env.SEMANTIC_RELEASE_VERSION }}'
@@ -98,6 +99,7 @@ jobs:
     # the version job only runs on main, everywhere else the Makefile decides
     if: "!cancelled() && (needs.version.result == 'success' || needs.version.result == 'skipped')"
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     outputs:
@@ -107,7 +109,7 @@ jobs:
       release-due: '${{ steps.read.outputs.release-due }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -115,7 +117,7 @@ jobs:
             github.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
@@ -208,7 +210,7 @@ jobs:
 
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -230,15 +232,15 @@ jobs:
             registry-1.docker.io:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
       - name: 'Set up Docker Buildx'
-        uses: 'docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069' # v4.4.1
+        uses: 'docker/setup-buildx-action@v4.4.1'
 
       - name: 'Build the SDK image'
-        uses: 'docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc' # v7.4.0
+        uses: 'docker/build-push-action@v7.4.0'
         with:
           context: './sdk'
           build-args: |
@@ -384,7 +386,7 @@ jobs:
           echo "INFO: built ${expected}"
 
       - name: 'Upload the package'
-        uses: 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' # v7.0.2
+        uses: 'actions/upload-artifact@v7.0.2'
         with:
           name: 'package-${{ matrix.format }}'
           path: 'dist/'
@@ -400,6 +402,7 @@ jobs:
       github.ref == 'refs/heads/main' &&
       needs.metadata.outputs.release-due == 'true'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 15
     permissions:
       # push the release commit and tag and create the release with its assets
       contents: 'write'
@@ -409,7 +412,7 @@ jobs:
       pull-requests: 'write'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -424,14 +427,14 @@ jobs:
             uploads.github.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           # semantic-release needs every commit and tag since the last release
           fetch-depth: 0
           persist-credentials: false
 
       - name: 'Download the packages'
-        uses: 'actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333' # v8.0.2
+        uses: 'actions/download-artifact@v8.0.2'
         with:
           pattern: 'package-*'
           path: 'dist/'
@@ -474,7 +477,7 @@ jobs:
 
       - name: 'Create the release'
         id: 'semantic'
-        uses: 'cycjimmy/semantic-release-action@ad51787758d9654d5a75150a89a6fa9b3ccef95e' # v8.1.4
+        uses: 'cycjimmy/semantic-release-action@v8.1.4'
         with:
           semantic_version: '${{ env.SEMANTIC_RELEASE_VERSION }}'
           extra_plugins: |

@@ -138,10 +138,12 @@ repos:
         stages:
           - 'pre-commit'
 
-  - repo: 'https://github.com/rhysd/actionlint'
-    rev: '0933c147c9d6587653d45fdcb4c497c57a65f9af'  # frozen: v1.7.10
+  - repo: 'https://github.com/jdx/jactionlint'
+    rev: '9e87e8f34edfc00b849a27807e26eff9d00b936d'  # frozen: v2.5.0
     hooks:
-      - id: 'actionlint'
+      - id: 'jactionlint'
+        args:
+          - '--strict-exit'
         verbose: true
         stages:
           - 'pre-commit'
@@ -188,7 +190,7 @@ repos:
           - 'pre-commit'
 
   - repo: 'https://github.com/zizmorcore/zizmor-pre-commit'
-    rev: '64a97fb7fa63188393d3215c6e312f5f9c6d0f78'  # frozen: v1.27.0
+    rev: '06a39750ec31860bb44f2acf67182c40016cd1e7'  # frozen: v1.32.0
     hooks:
       - id: 'zizmor'
         verbose: true

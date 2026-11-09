@@ -31,12 +31,11 @@ on:  # yamllint disable-line rule:truthy
           - 'error'
           - 'fatal'
 
+  # once a week and never more often: Sunday 18:00 UTC (19:00 or 20:00 in Berlin) lies
+  # inside the Sunday 18-22 Europe/Berlin window renovate.json5 gives lock file
+  # maintenance, so it gets its slot. A cache reset is a manual dispatch (repoCache: reset)
   schedule:
-    # run renovate once an hour
-    - cron: '0 * * * *'
-
-    # start from an empty cache once a week on Monday night
-    - cron: '30 0 * * 1'
+    - cron: '0 18 * * 0'
 
 permissions:
   contents: 'read'
@@ -65,20 +64,18 @@ env:
   # 'enabled', 'disabled' or 'reset', a scheduled run has no inputs
   REPO_CACHE: "${{ inputs.repoCache || 'enabled' }}"
 
-  # the weekly schedule skips restoring the previous cache
-  CACHE_RESET: "${{ github.event.schedule == '30 0 * * 1' }}"
-
 jobs:
   check-secrets:
     name: 'Check if required secrets are available'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     outputs:
       secrets-defined: '${{ steps.secret-check.outputs.secrets-defined }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -115,11 +112,12 @@ jobs:
       - 'check-secrets'
     if: "needs.check-secrets.outputs.secrets-defined == 'true'"
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -129,7 +127,7 @@ jobs:
             pkg-containers.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
@@ -163,13 +161,14 @@ jobs:
     needs:
       - 'renovate-config-validator'
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 10
     permissions:
       contents: 'read'
     outputs:
       require-result: '${{ steps.check-access.outputs.require-result }}'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           disable-sudo: true
           egress-policy: 'block'
@@ -179,7 +178,7 @@ jobs:
 
       - name: 'Get User Permissions'
         id: 'check-access'
-        uses: 'actions-cool/check-user-permission@c21884f3dda18dafc2f8b402fe807ccc9ec1aa5e' # v2.4.0
+        uses: 'actions-cool/check-user-permission@v2.4.0'
         with:
           require: 'write'
           username: '${{ github.triggering_actor }}'
@@ -216,6 +215,7 @@ jobs:
       - 'check-user-permissions'
     if: "needs.check-user-permissions.outputs.require-result == 'true'"
     runs-on: 'ubuntu-24.04'
+    timeout-minutes: 30
     permissions:
       # Renovate pushes and opens pull requests with RENOVATE_TOKEN. GITHUB_TOKEN
       # only checks out the repository and reads the previous run's cache artifact
@@ -225,7 +225,7 @@ jobs:
       packages: 'read'
     steps:
       - name: 'Harden Runner'
-        uses: 'step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a' # v2.22.4
+        uses: 'step-security/harden-runner@v2.22.4'
         with:
           # no disable-sudo: the restored cache has to be chowned to the Renovate user
           egress-policy: 'block'
@@ -257,13 +257,13 @@ jobs:
             results-receiver.actions.githubusercontent.com:443
 
       - name: 'Checkout the repository'
-        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        uses: 'actions/checkout@v7.0.1'
         with:
           persist-credentials: false
 
       - name: 'Download cache of the previous workflow run'
-        uses: 'dawidd6/action-download-artifact@a92c7ae74cf1df8810783758581e485ac3aaa309' # v28
-        if: "env.REPO_CACHE == 'enabled' && env.CACHE_RESET != 'true'"
+        uses: 'dawidd6/action-download-artifact@v28'
+        if: "env.REPO_CACHE == 'enabled'"
         id: 'artifact-download'
         with:
           name: '${{ env.CACHE_KEY }}'
@@ -273,7 +273,6 @@ jobs:
       - name: 'Extract Renovate cache to improve performance'
         if: >-
           env.REPO_CACHE == 'enabled' &&
-          env.CACHE_RESET != 'true' &&
           steps.artifact-download.outputs.found_artifact == 'true'
         shell: 'bash'
         run: |
@@ -306,7 +305,7 @@ jobs:
           };
 
       - name: 'Run Renovate'
-        uses: 'renovatebot/github-action@1c0cf989c02653fba0efe7ca5772338860ca71dc' # v46.3.12
+        uses: 'renovatebot/github-action@v46.3.12'
         with:
           # renovate: datasource=docker depName=ghcr.io/renovatebot/renovate
           renovate-version: '44.222.4'
@@ -366,7 +365,7 @@ jobs:
           tar -czvf "${CACHE_ARCHIVE}" -C "${CACHE_DIR}" .
 
       - name: 'Upload compressed cache'
-        uses: 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9' # v7.0.2
+        uses: 'actions/upload-artifact@v7.0.2'
         if: "env.REPO_CACHE != 'disabled'"
         with:
           name: '${{ env.CACHE_KEY }}'
