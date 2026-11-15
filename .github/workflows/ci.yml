@@ -29,7 +29,7 @@ env:
 jobs:
   jactionlint:
     name: 'jactionlint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -74,7 +74,7 @@ jobs:
 
   yamllint:
     name: 'yamllint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -127,7 +127,7 @@ jobs:
 
   markdownlint:
     name: 'markdownlint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -153,7 +153,7 @@ jobs:
 
   check-github-workflows:
     name: 'check-github-workflows'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -216,7 +216,7 @@ jobs:
 
   renovate-config-validator:
     name: 'renovate-config-validator'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -263,7 +263,7 @@ jobs:
 
   gitleaks:
     name: 'gitleaks'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -292,7 +292,7 @@ jobs:
 
   zizmor:
     name: 'zizmor'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -327,7 +327,7 @@ jobs:
 
   eslint:
     name: 'eslint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -397,7 +397,7 @@ jobs:
 
   hadolint:
     name: 'hadolint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -442,7 +442,7 @@ jobs:
 
   prek:
     name: 'prek (residual hooks)'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 15
     permissions:
       contents: 'read'
@@ -488,7 +488,7 @@ jobs:
 
   commitlint:
     name: 'commitlint'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -577,7 +577,7 @@ jobs:
 
   pin-gate:
     name: 'pin-gate (lockfile/digest enforcement)'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
