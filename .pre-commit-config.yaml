@@ -67,7 +67,7 @@ repos:
         verbose: true
 
   - repo: 'https://github.com/DavidAnson/markdownlint-cli2'
-    rev: '06f92c99e930c11230426b5edd775021d25e08a8'  # frozen: v0.23.1
+    rev: '916ad0aaa108c64d294101002066f530ea170b10'  # frozen: v0.23.3
     hooks:
       - id: 'markdownlint-cli2'
         stages:
