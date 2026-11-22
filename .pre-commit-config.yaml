@@ -129,7 +129,7 @@ repos:
           - 'pre-commit'
 
   - repo: 'https://github.com/python-jsonschema/check-jsonschema'
-    rev: '0fe8648804a32455c690e0519c217f8cee6a48c6'  # frozen: 0.36.0
+    rev: 'f761d025eb06bcd6a45bf152ba3593c9b8ad9a9b'  # frozen: 0.36.2
     hooks:
       - id: 'check-github-workflows'
         args:
