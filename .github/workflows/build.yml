@@ -52,7 +52,7 @@ jobs:
   version:
     name: 'Determine the next release'
     if: "github.event_name != 'pull_request' && github.ref == 'refs/heads/main'"
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       # even a dry run proves it could push the release (git push --dry-run)
@@ -98,7 +98,7 @@ jobs:
       - 'version'
     # the version job only runs on main, everywhere else the Makefile decides
     if: "!cancelled() && (needs.version.result == 'success' || needs.version.result == 'skipped')"
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 10
     permissions:
       contents: 'read'
@@ -187,7 +187,7 @@ jobs:
     # the implicit success() would also skip the build when the version job was
     # skipped, as it is on every pull request
     if: "!cancelled() && needs.metadata.result == 'success'"
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     # MEASURED: one SDK builds the package in about 2 minutes, pulling the SDK image
     # takes a few more. The cap ends a hung build long before the six-hour default
     timeout-minutes: 20
@@ -401,7 +401,7 @@ jobs:
       github.event_name != 'pull_request' &&
       github.ref == 'refs/heads/main' &&
       needs.metadata.outputs.release-due == 'true'
-    runs-on: 'ubuntu-24.04'
+    runs-on: 'ubuntu-26.04'
     timeout-minutes: 15
     permissions:
       # push the release commit and tag and create the release with its assets
